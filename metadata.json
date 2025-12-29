@@ -1,0 +1,7 @@
+{
+  "name": "Cozy Weather",
+  "description": "Una aplicación del tiempo adorable y relajante con consejos personalizados.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
