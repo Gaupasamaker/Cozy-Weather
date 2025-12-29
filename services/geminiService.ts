@@ -1,5 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
+// Declare process for TypeScript in the browser context
+declare const process: {
+  env: {
+    API_KEY: string;
+    [key: string]: string | undefined;
+  }
+};
+
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getCozyMessage = async (

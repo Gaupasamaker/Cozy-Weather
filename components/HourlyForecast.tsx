@@ -8,8 +8,6 @@ interface HourlyForecastProps {
 }
 
 const HourlyForecast: React.FC<HourlyForecastProps> = ({ data, label }) => {
-  // Find the index of the current hour to start the list from "now"
-  const currentHourISO = new Date().toISOString().slice(0, 13); // Match YYYY-MM-DDTHH format roughly
   
   // Find index where time string starts with current date/hour prefix, or just find nearest
   const now = new Date();
