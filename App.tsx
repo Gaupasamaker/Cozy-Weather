@@ -354,29 +354,30 @@ const App: React.FC = () => {
                     </p>
                     
                     {/* Visual Centerpiece: Weather Icon OR Cat Avatar */}
-                    {/* Compact layout: Reduced top margin (mt-0). Conditional bottom margin: mb-4 for Cat, -mb-10 for Icon to tighten gap */}
-                    <div className={`flex justify-center mt-0 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-4' : '-mb-10'}`} onClick={() => setShowMascot(!showMascot)}>
+                    {/* Compact layout: Added mt-2. Size reduced to w-52 (13rem). Margins tuned to prevent overlap: mb-2 for Cat, -mb-6 for Icon. */}
+                    <div className={`flex justify-center mt-2 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-2' : '-mb-6'}`} onClick={() => setShowMascot(!showMascot)}>
                         {showMascot ? (
                             <div className="transform transition-all duration-500 hover:scale-105">
                                 <CatAvatar 
                                     weatherCode={weather.current_weather.weathercode}
                                     temperature={weather.current_weather.temperature}
                                     isDay={weather.current_weather.is_day === 1}
-                                    className="w-60 h-60"
+                                    className="w-52 h-52"
                                 />
                             </div>
                         ) : (
                             <WeatherIcon 
                                 code={weather.current_weather.weathercode} 
                                 isDay={weather.current_weather.is_day} 
-                                size="xl" 
-                                className="w-60 h-60"
+                                size="lg" 
+                                className="w-52 h-52"
                             />
                         )}
                     </div>
                     
                     <div className="flex flex-col items-center mb-4 pt-0">
-                        <div className="text-7xl font-bold text-gray-800 tracking-tighter relative z-20 leading-none">
+                        {/* Reduced from text-7xl to text-6xl for better fit */}
+                        <div className="text-6xl font-bold text-gray-800 tracking-tighter relative z-20 leading-none">
                             {Math.round(weather.current_weather.temperature)}°
                         </div>
                         {weather.current_weather.apparent_temperature !== undefined && (
