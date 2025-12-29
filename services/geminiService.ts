@@ -1,12 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Declare process for TypeScript in the browser context
-declare const process: {
-  env: {
-    API_KEY: string;
-    [key: string]: string | undefined;
-  }
-};
+// Simplest declaration to avoid TS errors in Vite environment
+declare const process: any;
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
