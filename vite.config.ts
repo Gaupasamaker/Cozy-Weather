@@ -9,7 +9,7 @@ export default defineConfig({
     sourcemap: false
   },
   define: {
-    // This allows the code to access process.env.API_KEY as a string literal replaced at build time
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
+    // Safely replace process.env.API_KEY. If it doesn't exist, use an empty string.
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || "")
   }
 })

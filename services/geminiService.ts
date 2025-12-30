@@ -5,7 +5,8 @@ const apiKey = process.env.API_KEY;
 
 // Helper to safely get AI instance or null
 const getAiClient = () => {
-  if (!apiKey || apiKey === "undefined") {
+  // Check for undefined, null, OR empty string (which is our fallback in vite.config)
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
     console.warn("API Key is missing. Using default messages.");
     return null;
   }
