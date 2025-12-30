@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Simplest declaration to avoid TS errors in Vite environment
-declare const process: any;
+// @ts-ignore - process is injected by vite define plugin during build
+const apiKey = process.env.API_KEY;
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey });
 
 export const getCozyMessage = async (
   weatherCode: number,
