@@ -1,22 +1,22 @@
-const CACHE_NAME = 'cozy-weather-v1';
+const CACHE_NAME = 'cozy-weather-v2';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './index.tsx',
-  './manifest.json'
+  '/',
+  '/index.html',
+  '/manifest.json'
 ];
 
 // Install event: Cache core assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // We use { cache: 'reload' } to ensure we get fresh versions from server
+      return cache.addAll(ASSETS_TO_CACHE.map(url => new Request(url, { cache: 'reload' })));
     })
   );
   self.skipWaiting();
 });
 
-// Activate event: Clean up old caches
+// Activate event: Clean up old caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -32,18 +32,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event: Network first, fall back to cache for navigation, cache first for static assets
+// Fetch event: Network first strategy is safer for SPAs on Vercel to avoid stale content
 self.addEventListener('fetch', (event) => {
-  // For API calls (weather, geo, gemini), generally go network only or handle errors gracefully in UI
-  if (event.request.url.includes('api.open-meteo.com') || 
-      event.request.url.includes('geocoding-api') ||
-      event.request.url.includes('generativelanguage')) {
-    return; 
+  // Skip cross-origin requests (like API calls)
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  // API calls should always go to network
+  if (event.request.url.includes('/api/')) {
+    return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .catch(() => {
+        return caches.match(event.request).then((response) => {
+            if (response) return response;
+            // If offline and request is navigation, return index.html
+            if (event.request.mode === 'navigate') {
+                return caches.match('/index.html');
+            }
+        });
+      })
   );
 });
