@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { getCozyMessage } from './services/geminiService';
 import { getWeather, searchCity, getReverseGeocoding } from './services/weatherService';
 import { WeatherData, GeoLocation } from './types';
@@ -455,6 +456,8 @@ const App: React.FC = () => {
       <footer className="mt-auto py-4 text-center text-gray-400 text-sm relative z-10">
         <p>{t.footer}</p>
       </footer>
+
+      <SpeedInsights />
     </div>
   );
 };
