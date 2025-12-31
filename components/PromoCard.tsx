@@ -133,9 +133,9 @@ const PromoCard: React.FC<PromoCardProps> = ({
       {/* 
           CENTER: THE CARD
           Absolute centering ensures it's always in the middle.
-          We offset Y slightly (-55%) to visually balance with the footer.
+          Changed from -translate-y-[55%] to -translate-y-[62%] to move card UP and clear space for bottom text.
       */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[55%] flex items-center justify-center z-10 w-full pointer-events-none">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] flex items-center justify-center z-10 w-full pointer-events-none">
           
           <div className="transform origin-center transition-transform duration-300 pointer-events-auto
                           scale-[0.24]      
@@ -223,8 +223,8 @@ const PromoCard: React.FC<PromoCardProps> = ({
       <div className="absolute bottom-0 left-0 w-full flex flex-col items-center justify-end pb-8 pt-20 px-4 z-[120] bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent pointer-events-none">
         
         {/* Wrapper div to capture pointer events for buttons/text */}
-        <div className="flex flex-col items-center gap-5 pointer-events-auto">
-            <p className="text-pink-200/90 font-bold uppercase tracking-widest text-xs sm:text-sm animate-pulse text-center drop-shadow-md">
+        <div className="flex flex-col items-center gap-6 pointer-events-auto">
+            <p className="text-pink-200/90 font-bold uppercase tracking-widest text-xs sm:text-sm animate-pulse text-center drop-shadow-md mb-1">
                 {t.capture}
             </p>
             
