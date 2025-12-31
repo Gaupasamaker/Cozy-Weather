@@ -28,7 +28,8 @@ const translations = {
     defaultLocation: "Tu Ubicación",
     outfitTitle: "Outfit Recomendado",
     favPrompt: "¿Qué nombre le ponemos a este lugar? (ej. Casa, Trabajo)",
-    mascotMode: "Modo Mascota"
+    mascotMode: "Modo Mascota",
+    shareBtn: "Compartir"
   },
   en: {
     searchPlaceholder: "Search city",
@@ -44,7 +45,8 @@ const translations = {
     defaultLocation: "Your Location",
     outfitTitle: "Recommended Outfit",
     favPrompt: "What nickname should we give this place? (e.g. Home, Work)",
-    mascotMode: "Mascot Mode"
+    mascotMode: "Mascot Mode",
+    shareBtn: "Share"
   }
 };
 
@@ -447,7 +449,7 @@ const App: React.FC = () => {
                 <HourlyForecast data={weather.hourly} label={t.hourly} />
 
                 {/* Daily Forecast Scroll */}
-                <div className="mb-8">
+                <div className="mb-6">
                     <h3 className="text-gray-600 font-bold ml-4 mb-3">{t.nextDays}</h3>
                     <div className="flex gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide">
                         {weather.daily.time.slice(1, 7).map((date, index) => (
@@ -462,19 +464,27 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {/* NEW MAIN SHARE BUTTON */}
+                <div className="mb-8 px-2">
+                    <button 
+                        onClick={() => setShowPromo(true)}
+                        className="w-full bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3 active:scale-95 group"
+                    >
+                        <span className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                            </svg>
+                        </span>
+                        <span className="text-lg tracking-wide">{t.shareBtn}</span>
+                    </button>
+                </div>
             </>
         ) : null}
       </div>
 
       <footer className="mt-auto py-4 text-center text-gray-400 text-sm relative z-10 flex gap-2 items-center justify-center">
         <p>{t.footer}</p>
-        <button 
-          onClick={() => setShowPromo(true)} 
-          className="bg-white/50 hover:bg-white p-1 rounded-full transition-all text-xs"
-          title="Generar imagen promocional"
-        >
-            📸
-        </button>
       </footer>
     </div>
   );
