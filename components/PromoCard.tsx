@@ -21,7 +21,7 @@ const translations = {
     shareLink: "Compartir Enlace",
     close: "Cerrar",
     copied: "¡Enlace copiado!",
-    shareText: "¡Mira el clima tan adorable que hace aquí! 🌸☁️ Revisa Cozy Weather:"
+    shareText: "¡El clima está adorable! 🌸☁️ ¡Entra en Cozy Weather y comparte tu día! 👇"
   },
   en: {
     appTitle: "Cozy Weather",
@@ -31,7 +31,7 @@ const translations = {
     shareLink: "Share Link",
     close: "Close",
     copied: "Link copied!",
-    shareText: "Look how cute the weather is here! 🌸☁️ Check out Cozy Weather:"
+    shareText: "The weather is lovely! 🌸☁️ Come into Cozy Weather and share your day! 👇"
   }
 };
 
