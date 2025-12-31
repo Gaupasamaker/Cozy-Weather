@@ -9,6 +9,7 @@ import HourlyForecast from './components/HourlyForecast';
 import AtmosphericBackground from './components/AtmosphericBackground';
 import OutfitWidget from './components/OutfitWidget';
 import FavoriteTicket from './components/FavoriteTicket';
+import PromoCard from './components/PromoCard';
 
 type Language = 'es' | 'en';
 
@@ -58,6 +59,7 @@ const App: React.FC = () => {
   const [aiMessage, setAiMessage] = useState<string>('');
   const [showSearch, setShowSearch] = useState(false);
   const [showMascot, setShowMascot] = useState(false); // State for the Mascot toggle
+  const [showPromo, setShowPromo] = useState(false); // State for Promo Card
   
   // Lazy initialization to prevent overwriting localStorage on mount
   const [favorites, setFavorites] = useState<GeoLocation[]>(() => {
@@ -232,6 +234,18 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center py-8 px-4 transition-colors duration-1000 relative overflow-hidden ${getBackgroundClass()}`}>
       
+      {/* Promo Card Overlay - Now passed dynamic data */}
+      {showPromo && weather && location && (
+        <PromoCard 
+            onClose={() => setShowPromo(false)} 
+            weatherCode={weather.current_weather.weathercode}
+            temperature={weather.current_weather.temperature}
+            isDay={weather.current_weather.is_day === 1}
+            locationName={location.customName || location.name}
+            language={language}
+        />
+      )}
+
       {/* Full Screen Atmospheric Background */}
       {weather && (
         <AtmosphericBackground 
@@ -452,8 +466,15 @@ const App: React.FC = () => {
         ) : null}
       </div>
 
-      <footer className="mt-auto py-4 text-center text-gray-400 text-sm relative z-10">
+      <footer className="mt-auto py-4 text-center text-gray-400 text-sm relative z-10 flex gap-2 items-center justify-center">
         <p>{t.footer}</p>
+        <button 
+          onClick={() => setShowPromo(true)} 
+          className="bg-white/50 hover:bg-white p-1 rounded-full transition-all text-xs"
+          title="Generar imagen promocional"
+        >
+            📸
+        </button>
       </footer>
     </div>
   );
