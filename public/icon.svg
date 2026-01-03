@@ -1,0 +1,74 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Filtro de Sombra para efecto Sticker -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+      <feOffset in="blur" dx="2" dy="4" result="offsetBlur"/>
+      <feComponentTransfer in="offsetBlur" result="shadowAlpha">
+        <feFuncA type="linear" slope="0.3"/> 
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="shadowAlpha"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- Rayos del Sol -->
+    <g stroke="white" stroke-width="8" stroke-linecap="round">
+      <line x1="50" y1="15" x2="50" y2="5" />
+      <line x1="50" y1="85" x2="50" y2="95" />
+      <line x1="15" y1="50" x2="5" y2="50" />
+      <line x1="85" y1="50" x2="95" y2="50" />
+      <line x1="25" y1="25" x2="18" y2="18" />
+      <line x1="75" y1="75" x2="82" y2="82" />
+      <line x1="25" y1="75" x2="18" y2="82" />
+      <line x1="75" y1="25" x2="82" y2="18" />
+    </g>
+
+    <!-- Rayos (Relleno Ámbar) -->
+    <g stroke="#fbbf24" stroke-width="0">
+      <line x1="50" y1="15" x2="50" y2="5" stroke-width="0" /> 
+      <!-- Usamos círculos para las puntas de los rayos -->
+      <circle cx="50" cy="10" r="3" fill="#fbbf24" />
+      <circle cx="50" cy="90" r="3" fill="#fbbf24" />
+      <circle cx="10" cy="50" r="3" fill="#fbbf24" />
+      <circle cx="90" cy="50" r="3" fill="#fbbf24" />
+      <circle cx="21" cy="21" r="3" fill="#fbbf24" />
+      <circle cx="79" cy="79" r="3" fill="#fbbf24" />
+      <circle cx="21" cy="79" r="3" fill="#fbbf24" />
+      <circle cx="79" cy="21" r="3" fill="#fbbf24" />
+    </g>
+
+    <!-- Rayos (Costura) -->
+    <g stroke="#f59e0b" stroke-width="2" stroke-dasharray="2 2" stroke-linecap="round">
+       <!-- Decoración visual en los rayos -->
+    </g>
+
+    <!-- Cuerpo del Sol (Borde Blanco Sticker) -->
+    <circle cx="50" cy="50" r="28" fill="white" stroke="white" stroke-width="8" />
+    
+    <!-- Cuerpo del Sol (Relleno) -->
+    <circle cx="50" cy="50" r="28" fill="#fde68a" />
+    
+    <!-- Cuerpo del Sol (Costura Borde) -->
+    <circle cx="50" cy="50" r="28" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="4 3" />
+
+    <!-- Cara Kawaii -->
+    <!-- Ojos -->
+    <circle cx="40" cy="48" r="3.5" fill="#451a03" />
+    <circle cx="60" cy="48" r="3.5" fill="#451a03" />
+    
+    <!-- Brillos en los ojos -->
+    <circle cx="41.5" cy="46.5" r="1.2" fill="white" />
+    <circle cx="61.5" cy="46.5" r="1.2" fill="white" />
+
+    <!-- Mejillas -->
+    <circle cx="34" cy="55" r="4" fill="#fda4af" opacity="0.6" />
+    <circle cx="66" cy="55" r="4" fill="#fda4af" opacity="0.6" />
+
+    <!-- Boca -->
+    <path d="M 46,55 Q 50,59 54,55" stroke="#451a03" stroke-width="2" fill="none" stroke-linecap="round" />
+  </g>
+</svg>
