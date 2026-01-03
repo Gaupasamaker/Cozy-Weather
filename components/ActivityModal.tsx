@@ -25,7 +25,7 @@ const LinkCard: React.FC<{ chunk: any, idx: number }> = ({ chunk, idx }) => {
             href={uri} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-pink-100 shadow-sm hover:shadow-md hover:border-pink-300 transition-all group active:scale-[0.98] w-full"
+            className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-pink-100 shadow-sm hover:shadow-md hover:border-pink-300 transition-all group active:scale-[0.98] w-full box-border"
         >
             <div className="w-9 h-9 bg-pink-50 rounded-full flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -36,7 +36,7 @@ const LinkCard: React.FC<{ chunk: any, idx: number }> = ({ chunk, idx }) => {
                 <p className="font-bold text-gray-800 text-sm group-hover:text-pink-600 transition-colors truncate">{title}</p>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide">Google Maps</p>
             </div>
-            <div className="text-gray-300 group-hover:text-pink-400">
+            <div className="text-gray-300 group-hover:text-pink-400 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                 </svg>
@@ -55,7 +55,6 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
     let isMounted = true;
 
     const fetchPlans = async () => {
-      // Pass the activityContext (e.g., "Go for a walk") to the service
       const result = await getLocalRecommendations(lat, lon, weatherCode, temp, activityContext, lang);
       if (isMounted) {
         if (result && result.text) {
@@ -63,23 +62,26 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
           
           const allChunks = result.groundingMetadata?.groundingChunks || [];
           
-          // Filter out chunks that don't have a valid URI
           const validChunks = allChunks.filter((c: any) => c.maps?.uri || c.web?.uri);
 
-          // Deduplicate based on URI
           const uniqueChunks = validChunks.filter((chunk: any, index: number, self: any[]) => 
               index === self.findIndex((t) => (
                   (t.maps?.uri === chunk.maps?.uri) || (t.web?.uri === chunk.web?.uri && chunk.web?.uri)
               ))
           );
           
-          // Split EXACTLY in half.
-          // The prompt asks for equal numbers (3 Activity + 3 Food). 
-          const splitIndex = Math.ceil(uniqueChunks.length / 2);
-
-          // Enforce max 3 per category UI side as well to be safe
-          setActivityChunks(uniqueChunks.slice(0, splitIndex).slice(0, 3));
-          setFoodChunks(uniqueChunks.slice(splitIndex).slice(0, 3));
+          // Fallback logic: If we have chunks, display them.
+          if (uniqueChunks.length > 0) {
+              // Split roughly in half
+              const splitIndex = Math.ceil(uniqueChunks.length / 2);
+              
+              // Force MAX 3 items per section using .slice(0, 3)
+              setActivityChunks(uniqueChunks.slice(0, splitIndex).slice(0, 3));
+              setFoodChunks(uniqueChunks.slice(splitIndex).slice(0, 3));
+          } else {
+              setActivityChunks([]);
+              setFoodChunks([]);
+          }
 
         } else {
           setContent(lang === 'es' 
@@ -100,22 +102,22 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
         {/* Backdrop */}
         <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}></div>
 
-        {/* Modal Card - WIDER (max-w-lg) and cleaner layout */}
-        <div className="bg-[#fdf2f8] w-full sm:max-w-lg max-h-[85vh] overflow-y-auto rounded-[2rem] shadow-2xl relative flex flex-col border-[6px] border-white">
+        {/* Modal Card - Structure changed to Flex Column for proper scrolling */}
+        <div className="bg-[#fdf2f8] w-full sm:max-w-lg max-h-[85vh] rounded-[2rem] shadow-2xl relative flex flex-col border-[6px] border-white overflow-hidden">
             
-            {/* Header */}
-            <div className="p-6 pb-4 flex justify-between items-start sticky top-0 bg-[#fdf2f8] z-10 shadow-sm border-b border-pink-50">
+            {/* Header - Fixed (Non-scrolling) */}
+            <div className="p-6 pb-4 flex justify-between items-start shrink-0 bg-[#fdf2f8] border-b border-pink-50 z-10">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800 leading-tight">
                         {lang === 'es' ? "Planes Cercanos" : "Nearby Plans"}
                     </h2>
-                    <p className="text-pink-500 font-medium text-sm mt-1">
+                    <p className="text-pink-500 font-medium text-sm mt-1 line-clamp-1">
                         {activityContext}
                     </p>
                 </div>
                 <button 
                     onClick={onClose}
-                    className="bg-white p-2 rounded-full hover:bg-gray-100 transition shadow-sm border border-gray-100"
+                    className="bg-white p-2 rounded-full hover:bg-gray-100 transition shadow-sm border border-gray-100 shrink-0 ml-2"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 text-gray-500">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -123,8 +125,9 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
                 </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6 pt-4">
+            {/* Content Body - Scrollable Area */}
+            {/* overflow-x-hidden prevents horizontal scrollbars from sticking out */}
+            <div className="p-6 pt-4 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-pink-200 scrollbar-track-transparent">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
                         <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin"></div>
@@ -141,11 +144,11 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
 
                         {/* SECTION 1: ACTIVITY */}
                         {activityChunks.length > 0 && (
-                            <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100 w-full">
+                            <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100 w-full box-border">
                                 <h4 className="text-xs font-bold text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <span>📍</span> {lang === 'es' ? "Plan Principal" : "Main Activity"}
                                 </h4>
-                                <div className="grid gap-2 w-full">
+                                <div className="grid grid-cols-1 gap-2 w-full">
                                     {activityChunks.map((chunk, idx) => (
                                         <LinkCard key={`act-${idx}`} chunk={chunk} idx={idx} />
                                     ))}
@@ -155,22 +158,27 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ onClose, lat, lon, weathe
 
                         {/* SECTION 2: FOOD */}
                         {foodChunks.length > 0 && (
-                            <div className="bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 w-full">
+                            <div className="bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 w-full box-border">
                                 <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <span>☕</span> {lang === 'es' ? "Gastronomía" : "Gastronomy"}
                                 </h4>
-                                <div className="grid gap-2 w-full">
+                                <div className="grid grid-cols-1 gap-2 w-full">
                                     {foodChunks.map((chunk, idx) => (
                                         <LinkCard key={`food-${idx}`} chunk={chunk} idx={idx} />
                                     ))}
                                 </div>
                             </div>
                         )}
+
+                        {/* Fallback if no specific categories could be filled but text exists, 
+                            usually Gemini returns chunks if we ask nicely. 
+                            If uniqueChunks was 0, nothing shows here. */}
                     </div>
                 )}
             </div>
             
-            <div className="p-4 bg-white/50 text-center text-xs text-gray-400">
+            {/* Footer - Fixed */}
+            <div className="p-4 bg-white/50 text-center text-xs text-gray-400 shrink-0 border-t border-pink-50/50">
                 Powered by Google Gemini & Maps
             </div>
         </div>

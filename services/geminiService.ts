@@ -128,32 +128,24 @@ export const getLocalRecommendations = async (
   if (!ai) return null;
 
   const langName = lang === 'es' ? "Spanish" : "English";
-  
-  // Headers defined in code to prevent AI from messing up languages or repeating them
-  const headerActivity = lang === 'es' ? "📍 Para tu plan:" : "📍 For your plan:";
-  const headerFood = lang === 'es' ? "☕ Para comer/beber:" : "☕ To eat/drink:";
 
+  // Simplified prompt to ensure tool triggering without duplication
   const prompt = `
-    I am at latitude ${lat}, longitude ${lon}.
-    The weather is code ${weatherCode} and ${temp}°C.
+    Current Location: Latitude ${lat}, Longitude ${lon}.
+    Weather: ${temp}°C, Code ${weatherCode}.
+    Desired Activity: "${activityContext}".
     
-    My goal is to do this activity: "${activityContext}".
+    Task:
+    1. Search via Google Maps for EXACTLY 3 places for the Desired Activity.
+    2. Search via Google Maps for EXACTLY 3 places for food/drink nearby.
+    3. Write a brief, single-paragraph introduction (max 50 words) in ${langName} recommending these plans.
     
-    CRITICAL INSTRUCTIONS:
-    1.  **Output Language:** STRICTLY ${langName}. Do not include any other language.
-    2.  **No Repetition:** Write the response exactly ONCE.
-    3.  **Google Maps:** You MUST use the Google Maps tool to find exactly **6 distinct places**.
-        -   **First 3 places:** Must be strictly for the main activity ("${activityContext}").
-        -   **Next 3 places:** Must be for a GASTRONOMIC STOP nearby (Coffee, Snack, Lunch, or Dinner).
+    Rules:
+    - Language: Strictly ${langName}.
+    - Do NOT repeat the list of places twice. Just mention them naturally in the text or list them once.
+    - Do NOT output the same response multiple times.
     
-    Structure your response EXACTLY like this:
-    [Short cute intro sentence about weather and plan]
-    
-    ${headerActivity}
-    [List the first 3 places for activity here]
-    
-    ${headerFood}
-    [List the next 3 places for food here]
+    Requirement: You MUST use Google Maps to find these real places and provide their links.
   `;
 
   try {
