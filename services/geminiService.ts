@@ -109,12 +109,12 @@ export const getLocalRecommendations = async (
   activityContext: string,
   lang: 'es' | 'en' = 'es'
 ) => {
-  // Fallback structure
+  // Fallback structure - CORREGIDO: groundingMetadata usa undefined, no null
   const fallbackResponse = {
       text: lang === 'es' 
           ? "No pude conectar con las nubes, pero explora tu zona con cariño. 🌸" 
           : "Couldn't connect to the clouds, but explore your area with love. 🌸",
-      groundingMetadata: null
+      groundingMetadata: undefined
   };
 
   const ai = getAIClient();
