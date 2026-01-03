@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -8,8 +9,6 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false
   },
-  define: {
-    // Safely replace process.env.API_KEY. If it doesn't exist, use an empty string.
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || "")
-  }
+  // ELIMINADO: Ya no definimos process.env.API_KEY aquí.
+  // Esto asegura que la clave de servidor (API_KEY) nunca se filtre al cliente.
 })

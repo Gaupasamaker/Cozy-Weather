@@ -1,7 +1,9 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// @ts-ignore
+// --- CONFIGURACIÓN DE SEGURIDAD ---
+// En desarrollo local, puedes usar VITE_API_KEY en tu archivo .env
+// En producción, esta variable no debe existir, forzando el uso del backend.
 const localApiKey = process.env.API_KEY;
 
 // --- UTILITY: Backend Proxy Caller ---
@@ -14,7 +16,8 @@ const generateContentSecurely = async (
 ): Promise<{ text: string | undefined, groundingMetadata?: any }> => {
   
   // 1. DEV MODE: Use Local Key if available (Direct SDK call)
-  if (localApiKey && localApiKey !== "undefined" && localApiKey !== "") {
+  // This is only for local debugging with a .env file containing API_KEY
+  if (localApiKey && typeof localApiKey === "string" && localApiKey.startsWith("AIza")) {
     try {
       const ai = new GoogleGenAI({ apiKey: localApiKey });
       const response = await ai.models.generateContent({
