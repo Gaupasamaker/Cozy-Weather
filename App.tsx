@@ -4,7 +4,7 @@ import { getCozyMessage, getQuickActivity } from './services/geminiService';
 import { getWeather, searchCity, getReverseGeocoding } from './services/weatherService';
 import { WeatherData, GeoLocation } from './types';
 import WeatherIcon, { WindIcon, TempIcon } from './components/WeatherIcon';
-import CatAvatar from './components/CatAvatar'; // Importing the Cat mascot
+import CatAvatar from './components/CatAvatar'; 
 import DailyCard from './components/DailyCard';
 import HourlyForecast from './components/HourlyForecast';
 import AtmosphericBackground from './components/AtmosphericBackground';
@@ -31,7 +31,7 @@ const translations = {
     defaultLocation: "Tu Ubicación",
     outfitTitle: "Outfit Recomendado",
     favPrompt: "¿Qué nombre le ponemos a este lugar? (ej. Casa, Trabajo)",
-    mascotMode: "Modo Mascota",
+    mascotMode: "Cambiar Mascota",
     shareBtn: "Compartir",
     loadingPlan: "Consultando..."
   },
@@ -49,7 +49,7 @@ const translations = {
     defaultLocation: "Your Location",
     outfitTitle: "Recommended Outfit",
     favPrompt: "What nickname should we give this place? (e.g. Home, Work)",
-    mascotMode: "Mascot Mode",
+    mascotMode: "Change Mascot",
     shareBtn: "Share",
     loadingPlan: "Thinking..."
   }
@@ -66,9 +66,12 @@ const App: React.FC = () => {
   const [aiMessage, setAiMessage] = useState<string>('');
   const [activitySuggestion, setActivitySuggestion] = useState<string>('');
   const [showSearch, setShowSearch] = useState(false);
-  const [showMascot, setShowMascot] = useState(false); // State for the Mascot toggle
-  const [showPromo, setShowPromo] = useState(false); // State for Promo Card
-  const [showActivityModal, setShowActivityModal] = useState(false); // State for Activity Modal
+  
+  // Mascot Toggle: true = Cat, false = Icon
+  const [showMascot, setShowMascot] = useState(true);
+  
+  const [showPromo, setShowPromo] = useState(false); 
+  const [showActivityModal, setShowActivityModal] = useState(false); 
   
   // Lazy initialization to prevent overwriting localStorage on mount
   const [favorites, setFavorites] = useState<GeoLocation[]>(() => {
@@ -263,6 +266,9 @@ const App: React.FC = () => {
     ));
   };
 
+  const toggleMascot = () => {
+      setShowMascot(prev => !prev);
+  };
 
   // Background gradient based on time of day (mock logic since we have is_day)
   const getBackgroundClass = () => {
@@ -387,11 +393,13 @@ const App: React.FC = () => {
                     <div className="relative flex justify-center items-center mb-1">
                         {/* Mascot Toggle Button (Top Left) */}
                         <button
-                            onClick={() => setShowMascot(!showMascot)}
+                            onClick={toggleMascot}
                             className={`absolute left-0 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all border-2 ${showMascot ? 'bg-pink-100 border-pink-300' : 'bg-transparent border-transparent hover:bg-white/50'}`}
                             title={t.mascotMode}
                         >
-                            <span className="text-xl filter drop-shadow-sm">{showMascot ? '🐱' : '☁️'}</span>
+                            <span className="text-xl filter drop-shadow-sm">
+                                {showMascot ? '🐱' : '☁️'}
+                            </span>
                         </button>
 
                         <h2 className="text-3xl font-bold text-gray-700 mx-10 leading-tight">{location.customName || location.name}</h2>
@@ -422,7 +430,7 @@ const App: React.FC = () => {
                     </p>
                     
                     {/* Visual Centerpiece */}
-                    <div className={`flex justify-center mt-2 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-2' : '-mb-6'}`} onClick={() => setShowMascot(!showMascot)}>
+                    <div className={`flex justify-center mt-2 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-2' : '-mb-6'}`} onClick={toggleMascot}>
                         {showMascot ? (
                             <div className="transform transition-all duration-500 hover:scale-105">
                                 <CatAvatar 
