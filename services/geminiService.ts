@@ -44,7 +44,7 @@ export const getCozyMessage = async (
   `;
 
   try {
-    // Timeout de 4 segundos máximo para mensajes
+    // Timeout de 6 segundos para mensajes (un poco más holgado)
     return await withTimeout(
       (async () => {
         const response = await ai.models.generateContent({
@@ -54,7 +54,7 @@ export const getCozyMessage = async (
         });
         return response.text || defaultMsg;
       })(),
-      4000,
+      6000,
       defaultMsg
     );
   } catch (error) {
@@ -93,7 +93,7 @@ export const getQuickActivity = async (
         });
         return response.text?.trim() || defaultActivity;
       })(),
-      4000,
+      6000,
       defaultActivity
     );
   } catch (e) {
@@ -125,13 +125,15 @@ export const getLocalRecommendations = async (
   const prompt = `
     Location: ${lat}, ${lon}. Weather: ${temp}°C. Activity: "${activityContext}".
     Task:
-    1. Find 3 places for the Activity via Google Maps.
-    2. Find 3 places for food/drink via Google Maps.
+    1. Find 3 SPECIFIC real places for the Activity via Google Maps near this location.
+    2. Find 3 SPECIFIC real places for food/drink via Google Maps near this location.
     3. Write a short intro (max 50 words) in ${langName}.
   `;
 
   try {
-    // Timeout más largo (8s) porque usa Tools (Google Maps)
+    // AUMENTADO: Timeout de 20 segundos.
+    // La búsqueda en Google Maps (Grounding) tarda más que una generación de texto normal.
+    // Especialmente en ubicaciones extranjeras o con menos densidad de datos.
     return await withTimeout(
         (async () => {
             const result = await ai.models.generateContent({
@@ -147,7 +149,7 @@ export const getLocalRecommendations = async (
                 groundingMetadata: result.candidates?.[0]?.groundingMetadata
             };
         })(),
-        8000,
+        20000, 
         fallbackResponse
     );
   } catch (error) {
