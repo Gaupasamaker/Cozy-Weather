@@ -122,18 +122,18 @@ export const getLocalRecommendations = async (
 
   const langName = lang === 'es' ? "Spanish" : "English";
 
+  // MEJORA: Instrucción explícita para inferir categorías de búsqueda.
+  // Ayuda cuando la actividad es abstracta (ej: "Leer un libro" -> buscar "Bibliotecas")
   const prompt = `
     Location: ${lat}, ${lon}. Weather: ${temp}°C. Activity: "${activityContext}".
     Task:
-    1. Find 3 SPECIFIC real places for the Activity via Google Maps near this location.
+    1. Interpret the "Activity" and find 3 SPECIFIC real places suitable for it via Google Maps near this location (e.g. if activity is "Read a book", search for "Libraries" or "Quiet Cafes").
     2. Find 3 SPECIFIC real places for food/drink via Google Maps near this location.
     3. Write a short intro (max 50 words) in ${langName}.
   `;
 
   try {
-    // AUMENTADO: Timeout de 20 segundos.
-    // La búsqueda en Google Maps (Grounding) tarda más que una generación de texto normal.
-    // Especialmente en ubicaciones extranjeras o con menos densidad de datos.
+    // AUMENTADO: Timeout de 25 segundos para mayor seguridad en conexiones internacionales
     return await withTimeout(
         (async () => {
             const result = await ai.models.generateContent({
@@ -149,7 +149,7 @@ export const getLocalRecommendations = async (
                 groundingMetadata: result.candidates?.[0]?.groundingMetadata
             };
         })(),
-        20000, 
+        25000, 
         fallbackResponse
     );
   } catch (error) {
