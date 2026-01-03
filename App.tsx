@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCozyMessage } from './services/geminiService';
+import { getCozyMessage, getQuickActivity } from './services/geminiService';
 import { getWeather, searchCity, getReverseGeocoding } from './services/weatherService';
 import { WeatherData, GeoLocation } from './types';
 import WeatherIcon, { WindIcon, TempIcon } from './components/WeatherIcon';
@@ -8,6 +8,8 @@ import DailyCard from './components/DailyCard';
 import HourlyForecast from './components/HourlyForecast';
 import AtmosphericBackground from './components/AtmosphericBackground';
 import OutfitWidget from './components/OutfitWidget';
+import ActivityWidget from './components/ActivityWidget';
+import ActivityModal from './components/ActivityModal';
 import FavoriteTicket from './components/FavoriteTicket';
 import PromoCard from './components/PromoCard';
 
@@ -59,9 +61,11 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeoLocation[]>([]);
   const [aiMessage, setAiMessage] = useState<string>('');
+  const [activitySuggestion, setActivitySuggestion] = useState<string>('');
   const [showSearch, setShowSearch] = useState(false);
   const [showMascot, setShowMascot] = useState(false); // State for the Mascot toggle
   const [showPromo, setShowPromo] = useState(false); // State for Promo Card
+  const [showActivityModal, setShowActivityModal] = useState(false); // State for Activity Modal
   
   // Lazy initialization to prevent overwriting localStorage on mount
   const [favorites, setFavorites] = useState<GeoLocation[]>(() => {
@@ -123,6 +127,7 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setAiMessage(''); // Reset message while loading
+    setActivitySuggestion('');
     try {
       const data = await getWeather(lat, lon);
       if (data) {
@@ -137,6 +142,16 @@ const App: React.FC = () => {
             lang
         );
         setAiMessage(msg);
+
+        // Generate Quick Activity Suggestion
+        const activity = await getQuickActivity(
+            data.current_weather.weathercode,
+            data.current_weather.temperature,
+            data.current_weather.is_day === 1,
+            lang
+        );
+        setActivitySuggestion(activity);
+
       } else {
         setError(translations[lang].error);
       }
@@ -236,7 +251,7 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center py-8 px-4 transition-colors duration-1000 relative overflow-hidden ${getBackgroundClass()}`}>
       
-      {/* Promo Card Overlay - Now passed dynamic data */}
+      {/* Promo Card Overlay */}
       {showPromo && weather && location && (
         <PromoCard 
             onClose={() => setShowPromo(false)} 
@@ -246,6 +261,19 @@ const App: React.FC = () => {
             locationName={location.customName || location.name}
             language={language}
         />
+      )}
+
+      {/* Activity Recommendations Modal */}
+      {showActivityModal && weather && location && (
+          <ActivityModal 
+            onClose={() => setShowActivityModal(false)}
+            lat={location.latitude}
+            lon={location.longitude}
+            weatherCode={weather.current_weather.weathercode}
+            temp={weather.current_weather.temperature}
+            lang={language}
+            activityContext={activitySuggestion} // Pass the activity from the widget
+          />
       )}
 
       {/* Full Screen Atmospheric Background */}
@@ -369,8 +397,7 @@ const App: React.FC = () => {
                       {new Date().toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long'})}
                     </p>
                     
-                    {/* Visual Centerpiece: Weather Icon OR Cat Avatar */}
-                    {/* Compact layout: Added mt-2. Size reduced to w-52 (13rem). Margins tuned to prevent overlap: mb-2 for Cat, -mb-6 for Icon. */}
+                    {/* Visual Centerpiece */}
                     <div className={`flex justify-center mt-2 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-2' : '-mb-6'}`} onClick={() => setShowMascot(!showMascot)}>
                         {showMascot ? (
                             <div className="transform transition-all duration-500 hover:scale-105">
@@ -384,7 +411,7 @@ const App: React.FC = () => {
                         ) : (
                             <WeatherIcon 
                                 code={weather.current_weather.weathercode} 
-                                isDay={weather.current_weather.is_day} 
+                                isDay={weather.current_weather.is_day}
                                 size="lg" 
                                 className="w-52 h-52"
                             />
@@ -392,7 +419,6 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="flex flex-col items-center mb-4 pt-0">
-                        {/* Reduced from text-7xl to text-6xl for better fit */}
                         <div className="text-6xl font-bold text-gray-800 tracking-tighter relative z-20 leading-none">
                             {Math.round(weather.current_weather.temperature)}°
                         </div>
@@ -432,7 +458,16 @@ const App: React.FC = () => {
                             label={t.outfitTitle}
                         />
 
-                        {/* Temp Min/Max Section */}
+                        {/* NEW: Activity Suggestion Widget (Span 2 cols) */}
+                        {activitySuggestion && (
+                            <ActivityWidget 
+                                activity={activitySuggestion}
+                                onClick={() => setShowActivityModal(true)}
+                                lang={language}
+                            />
+                        )}
+
+                        {/* Temp Min/Max Section (Span 2 cols) */}
                         <div className="col-span-2 flex items-center justify-between px-6 py-3 bg-white/40 rounded-2xl border border-white/50 backdrop-blur-sm">
                             <div className="flex items-center gap-3">
                                 <TempIcon className="scale-75" />
