@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { getCozyMessage, getQuickActivity } from './services/geminiService';
 import { getWeather, searchCity, getReverseGeocoding } from './services/weatherService';
@@ -31,7 +32,8 @@ const translations = {
     outfitTitle: "Outfit Recomendado",
     favPrompt: "¿Qué nombre le ponemos a este lugar? (ej. Casa, Trabajo)",
     mascotMode: "Modo Mascota",
-    shareBtn: "Compartir"
+    shareBtn: "Compartir",
+    loadingPlan: "Consultando..."
   },
   en: {
     searchPlaceholder: "Search city",
@@ -48,7 +50,8 @@ const translations = {
     outfitTitle: "Recommended Outfit",
     favPrompt: "What nickname should we give this place? (e.g. Home, Work)",
     mascotMode: "Mascot Mode",
-    shareBtn: "Share"
+    shareBtn: "Share",
+    loadingPlan: "Thinking..."
   }
 };
 
@@ -88,38 +91,55 @@ const App: React.FC = () => {
     localStorage.setItem('cozyWeatherFavs', JSON.stringify(favorites));
   }, [favorites]);
 
-  // Initial Load - Get Location
+  // Initial Load - Get Location with Timeout Protection
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          
-          // Get actual city name via reverse geocoding
-          const cityName = await getReverseGeocoding(lat, lon, language);
+    const loadLocation = async () => {
+        // Helper to load default Madrid
+        const loadDefault = async () => {
+             console.log("Loading default location (Madrid)");
+             const defaultLat = 40.4168;
+             const defaultLon = -3.7038;
+             setLocation({ name: "Madrid", latitude: defaultLat, longitude: defaultLon, country: "España" });
+             await fetchWeatherData(defaultLat, defaultLon, "Madrid", language);
+        };
 
-          setLocation({
-            name: cityName,
-            latitude: lat,
-            longitude: lon
-          });
-          await fetchWeatherData(lat, lon, cityName, language);
-        },
-        async (err) => {
-          console.log("Geolocation denied or error, default to Madrid", err);
-          const defaultLat = 40.4168;
-          const defaultLon = -3.7038;
-          setLocation({ name: "Madrid", latitude: defaultLat, longitude: defaultLon, country: "España" });
-          await fetchWeatherData(defaultLat, defaultLon, "Madrid", language);
+        if (!("geolocation" in navigator)) {
+             await loadDefault();
+             return;
         }
-      );
-    } else {
-       // Fallback
-       const defaultLat = 40.4168;
-       const defaultLon = -3.7038;
-       fetchWeatherData(defaultLat, defaultLon, "Madrid", language);
-    }
+
+        // Create a promise for geolocation to handle timeouts
+        const getPosition = new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 5000, // 5 seconds timeout
+                maximumAge: 60000 // Accept cached positions up to 1 min old
+            });
+        });
+
+        try {
+            // Race between geolocation and a hard timeout logic (though navigator has timeout, this is extra safety)
+            const position = await getPosition;
+            
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            
+            // Get actual city name via reverse geocoding
+            const cityName = await getReverseGeocoding(lat, lon, language);
+
+            setLocation({
+                name: cityName,
+                latitude: lat,
+                longitude: lon
+            });
+            await fetchWeatherData(lat, lon, cityName, language);
+
+        } catch (err) {
+            console.log("Geolocation failed or timed out:", err);
+            await loadDefault();
+        }
+    };
+
+    loadLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -127,30 +147,33 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setAiMessage(''); // Reset message while loading
-    setActivitySuggestion('');
+    setActivitySuggestion(''); // Reset suggestion
+    
     try {
-      const data = await getWeather(lat, lon);
+      // Parallel execution to avoid waiting too long if one fails
+      const weatherPromise = getWeather(lat, lon);
+      
+      const data = await weatherPromise;
+
       if (data) {
         setWeather(data);
         
-        // Generate AI Message
-        const msg = await getCozyMessage(
+        // We trigger AI calls but don't await them strictly for the UI to be responsive
+        // The state updates will come in when they finish
+        getCozyMessage(
             data.current_weather.weathercode,
             data.current_weather.temperature,
             data.current_weather.is_day === 1,
             cityName,
             lang
-        );
-        setAiMessage(msg);
+        ).then(msg => setAiMessage(msg));
 
-        // Generate Quick Activity Suggestion
-        const activity = await getQuickActivity(
+        getQuickActivity(
             data.current_weather.weathercode,
             data.current_weather.temperature,
             data.current_weather.is_day === 1,
             lang
-        );
-        setActivitySuggestion(activity);
+        ).then(act => setActivitySuggestion(act));
 
       } else {
         setError(translations[lang].error);
@@ -158,6 +181,7 @@ const App: React.FC = () => {
     } catch (e) {
       setError(translations[lang].error);
     } finally {
+      // Ensure loading spinner stops
       setLoading(false);
     }
   };
@@ -458,14 +482,16 @@ const App: React.FC = () => {
                             label={t.outfitTitle}
                         />
 
-                        {/* NEW: Activity Suggestion Widget (Span 2 cols) */}
-                        {activitySuggestion && (
-                            <ActivityWidget 
-                                activity={activitySuggestion}
-                                onClick={() => setShowActivityModal(true)}
-                                lang={language}
-                            />
-                        )}
+                        {/* Activity Suggestion Widget (Span 2 cols) - Now ALWAYS rendered with placeholder */}
+                        <ActivityWidget 
+                            activity={activitySuggestion || t.loadingPlan}
+                            onClick={() => {
+                                // Only open modal if we have a real activity
+                                if (activitySuggestion) setShowActivityModal(true);
+                            }}
+                            lang={language}
+                            isLoading={!activitySuggestion}
+                        />
 
                         {/* Temp Min/Max Section (Span 2 cols) */}
                         <div className="col-span-2 flex items-center justify-between px-6 py-3 bg-white/40 rounded-2xl border border-white/50 backdrop-blur-sm">

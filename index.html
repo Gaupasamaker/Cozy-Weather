@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -86,6 +87,10 @@
 </head>
   <body>
     <div id="root"></div>
+    <!-- Polyfill process to prevent crashes in preview/browser if libs access it -->
+    <script>
+      window.process = window.process || { env: {} };
+    </script>
     <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { StickerPath, StickerCircle, shadowFilter } from './StitchedUtils';
 
@@ -5,6 +6,7 @@ interface ActivityWidgetProps {
   activity: string;
   onClick: () => void;
   lang: 'es' | 'en';
+  isLoading?: boolean;
 }
 
 const StarIcon: React.FC<{ className?: string }> = ({ className = "" }) => (
@@ -26,41 +28,53 @@ const StarIcon: React.FC<{ className?: string }> = ({ className = "" }) => (
     </div>
 );
 
-const ActivityWidget: React.FC<ActivityWidgetProps> = ({ activity, onClick, lang }) => {
+const ActivityWidget: React.FC<ActivityWidgetProps> = ({ activity, onClick, lang, isLoading = false }) => {
   const title = lang === 'es' ? "Plan sugerido" : "Suggested Plan";
 
   return (
     <div 
         onClick={onClick}
-        className="col-span-2 relative overflow-hidden group cursor-pointer"
+        className={`col-span-2 relative overflow-hidden group transition-all duration-300 ${isLoading ? 'opacity-80 cursor-wait' : 'cursor-pointer hover:scale-[1.01]'}`}
     >
-        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm rounded-2xl border border-white/50 shadow-sm transition-all duration-300 group-hover:bg-white/60 group-hover:scale-[1.02] group-active:scale-95"></div>
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm rounded-2xl border border-white/50 shadow-sm transition-all duration-300 group-hover:bg-white/60"></div>
         
         <div className="relative p-3 flex items-center gap-4">
-            <div className="shrink-0 animate-[pulse_3s_infinite]">
+            <div className={`shrink-0 ${isLoading ? 'animate-bounce' : 'animate-[pulse_3s_infinite]'}`}>
                 <StarIcon />
             </div>
             
-            <div className="flex flex-col items-start min-w-0">
+            <div className="flex flex-col items-start min-w-0 flex-1">
                  <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest leading-tight mb-0.5">
                     {title}
                  </span>
-                 <div className="flex items-center gap-2">
-                    <span className="text-gray-700 font-bold text-sm sm:text-base truncate leading-tight capitalize">
-                        {activity}
-                    </span>
-                    <span className="bg-yellow-100 text-yellow-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold border border-yellow-200 whitespace-nowrap">
-                        + Info
-                    </span>
+                 <div className="flex items-center gap-2 w-full">
+                    {isLoading ? (
+                         // Loading Skeleton / Text
+                         <span className="text-gray-400 font-bold text-sm sm:text-base leading-tight italic animate-pulse">
+                            {activity}
+                         </span>
+                    ) : (
+                         // Loaded Content
+                         <>
+                            <span className="text-gray-700 font-bold text-sm sm:text-base truncate leading-tight capitalize">
+                                {activity}
+                            </span>
+                            <span className="bg-yellow-100 text-yellow-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold border border-yellow-200 whitespace-nowrap hidden sm:inline-block">
+                                + Info
+                            </span>
+                         </>
+                    )}
                  </div>
             </div>
             
-            {/* Arrow icon */}
-            <div className="ml-auto text-gray-400 group-hover:translate-x-1 transition-transform">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-            </div>
+            {/* Arrow icon - only visible if loaded */}
+            {!isLoading && (
+                <div className="ml-auto text-gray-400 group-hover:translate-x-1 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                </div>
+            )}
         </div>
     </div>
   );

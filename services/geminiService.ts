@@ -1,72 +1,24 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// --- CONFIGURACIÓN DE SEGURIDAD ---
-// En desarrollo local, puedes usar VITE_API_KEY en tu archivo .env
-// En producción, esta variable no debe existir, forzando el uso del backend.
-const localApiKey = process.env.API_KEY;
+// Acceso directo a la variable inyectada por Vite
+const API_KEY = process.env.API_KEY;
 
-// --- UTILITY: Backend Proxy Caller ---
-// This acts as a bridge. If we have a local key (Dev), we use it directly.
-// If we don't (Prod), we ask our secure backend endpoint.
-const generateContentSecurely = async (
-  model: string,
-  contents: any,
-  config: any = {}
-): Promise<{ text: string | undefined, groundingMetadata?: any }> => {
-  
-  // 1. DEV MODE: Use Local Key if available (Direct SDK call)
-  // This is only for local debugging with a .env file containing API_KEY
-  if (localApiKey && typeof localApiKey === "string" && localApiKey.startsWith("AIza")) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: localApiKey });
-      const response = await ai.models.generateContent({
-        model,
-        contents,
-        config
-      });
-      return {
-        text: response.text,
-        groundingMetadata: response.candidates?.[0]?.groundingMetadata
-      };
-    } catch (error) {
-      console.error(`[Local Gemini Error] Model: ${model}`, error);
-      throw error;
-    }
-  }
-
-  // 2. PROD MODE: Call our own Serverless Backend (Proxy)
-  // This keeps the key hidden on the server.
-  try {
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        contents,
-        config
-      }),
-    });
-
-    if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Server Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data; // Expected { text: string, groundingMetadata: ... }
-
-  } catch (error) {
-    console.error(`[Secure Backend Error] Model: ${model}`, error);
-    // Return graceful fallback structure to prevent app crash
-    return { text: undefined }; 
-  }
+// Instancia perezosa para no fallar al inicio si no hay key
+const getAIClient = () => {
+  if (!API_KEY || API_KEY.length < 5) return null;
+  return new GoogleGenAI({ apiKey: API_KEY });
 };
 
+// Helper para timeout (evita que se quede pensando eternamente)
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
+  ]);
+};
 
-// --- PUBLIC METHODS ---
+// --- MÉTODOS PÚBLICOS ---
 
 export const getCozyMessage = async (
   weatherCode: number,
@@ -76,36 +28,38 @@ export const getCozyMessage = async (
   lang: 'es' | 'en' = 'es'
 ): Promise<string> => {
   const isEs = lang === 'es';
+  const defaultMsg = isEs ? "¡Que tengas un día adorable! ✨" : "Have a lovely day! ✨";
+
+  // 1. Si no hay API KEY, devolvemos default instantáneamente
+  const ai = getAIClient();
+  if (!ai) return defaultMsg;
+
   const timeOfDay = isDay ? (isEs ? "día" : "day") : (isEs ? "noche" : "night");
   const langName = isEs ? "Español" : "English";
-  
-  const defaultMsg = isEs ? "¡Que tengas un día adorable! ✨" : "Have a lovely day! ✨";
-  const errorMsg = isEs ? "¡Disfruta de este momento mágico! ✨🌸" : "Enjoy this magical moment! ✨🌸";
 
   const prompt = `
     Act like a "Kawaii" and "Cozy" weather assistant.
-    
-    Context:
-    - City: ${city}
-    - Temperature: ${temp}°C
-    - WMO Weather Code: ${weatherCode}
-    - Time: ${timeOfDay}
-    
-    Task:
-    Write a VERY SHORT phrase (max 20 words) in ${langName}.
-    It must be sweet, comforting, and use cute emojis.
-    If it's cold, suggest warmth. If it's sunny, suggest enjoying the day.
+    Context: City: ${city}, Temp: ${temp}°C, WeatherCode: ${weatherCode}, Time: ${timeOfDay}.
+    Task: Write a VERY SHORT phrase (max 20 words) in ${langName}. Sweet, comforting, cute emojis.
   `;
 
   try {
-    const result = await generateContentSecurely(
-      'gemini-3-flash-preview',
-      prompt,
-      { thinkingConfig: { thinkingBudget: 0 } }
+    // Timeout de 4 segundos máximo para mensajes
+    return await withTimeout(
+      (async () => {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+          config: { thinkingConfig: { thinkingBudget: 0 } }
+        });
+        return response.text || defaultMsg;
+      })(),
+      4000,
+      defaultMsg
     );
-    return result.text || defaultMsg;
   } catch (error) {
-    return errorMsg;
+    console.warn("Gemini API Error (Message):", error);
+    return defaultMsg;
   }
 };
 
@@ -115,32 +69,33 @@ export const getQuickActivity = async (
   isDay: boolean,
   lang: 'es' | 'en' = 'es'
 ): Promise<string> => {
-  const langName = lang === 'es' ? "Spanish" : "English";
   const defaultActivity = lang === 'es' ? "Relax en casa" : "Relax at home";
+  
+  // 1. Si no hay API KEY, fallback inmediato
+  const ai = getAIClient();
+  if (!ai) return defaultActivity;
 
-  const isRain = (weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82);
-  const isSnow = (weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86);
-  const isThunder = weatherCode >= 95;
-  const isBadWeather = isRain || isSnow || isThunder || temp < 5;
+  const langName = lang === 'es' ? "Spanish" : "English";
+  const isBadWeather = (weatherCode >= 51) || (temp < 5); // Simplificado para robustez
 
   const prompt = `
-    Based on the weather (Temp: ${temp}°C, Code: ${weatherCode}, Day: ${isDay}), 
-    suggest ONE very short activity (max 4 words) in ${langName}.
-    
-    CRITICAL WEATHER LOGIC:
-    - If Raining, Snowing, or Thunderstorming (${isBadWeather}): You MUST suggest an INDOOR activity.
-    - If Clear/Good weather: You can suggest outdoor activities.
-    
-    No emojis in the text, just the activity name.
+    Based on weather (Temp: ${temp}°C, Code: ${weatherCode}), suggest ONE very short activity (max 4 words) in ${langName}.
+    Condition: ${isBadWeather ? "Indoors" : "Outdoors if sunny"}. No emojis.
   `;
 
   try {
-    const result = await generateContentSecurely(
-      'gemini-3-flash-preview',
-      prompt,
-      { thinkingConfig: { thinkingBudget: 0 } }
+    return await withTimeout(
+      (async () => {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: { thinkingConfig: { thinkingBudget: 0 } }
+        });
+        return response.text?.trim() || defaultActivity;
+      })(),
+      4000,
+      defaultActivity
     );
-    return result.text?.trim() || defaultActivity;
   } catch (e) {
     return defaultActivity;
   }
@@ -154,49 +109,49 @@ export const getLocalRecommendations = async (
   activityContext: string,
   lang: 'es' | 'en' = 'es'
 ) => {
+  // Fallback structure
+  const fallbackResponse = {
+      text: lang === 'es' 
+          ? "No pude conectar con las nubes, pero explora tu zona con cariño. 🌸" 
+          : "Couldn't connect to the clouds, but explore your area with love. 🌸",
+      groundingMetadata: null
+  };
+
+  const ai = getAIClient();
+  if (!ai) return fallbackResponse;
+
   const langName = lang === 'es' ? "Spanish" : "English";
 
   const prompt = `
-    Current Location: Latitude ${lat}, Longitude ${lon}.
-    Weather: ${temp}°C, Code ${weatherCode}.
-    Desired Activity: "${activityContext}".
-    
+    Location: ${lat}, ${lon}. Weather: ${temp}°C. Activity: "${activityContext}".
     Task:
-    1. Search via Google Maps for EXACTLY 3 places for the Desired Activity.
-    2. Search via Google Maps for EXACTLY 3 places for food/drink nearby.
-    3. Write a brief, single-paragraph introduction (max 50 words) in ${langName} recommending these plans.
-    
-    Rules:
-    - Language: Strictly ${langName}.
-    - Do NOT output the same response multiple times.
-    
-    Requirement: You MUST use Google Maps to find these real places and provide their links.
+    1. Find 3 places for the Activity via Google Maps.
+    2. Find 3 places for food/drink via Google Maps.
+    3. Write a short intro (max 50 words) in ${langName}.
   `;
 
   try {
-    // Note: We use gemini-2.5-flash for Maps grounding
-    const result = await generateContentSecurely(
-      "gemini-2.5-flash",
-      prompt,
-      {
-        tools: [{ googleMaps: {} }],
-        toolConfig: {
-            retrievalConfig: {
-                latLng: {
-                    latitude: lat,
-                    longitude: lon
+    // Timeout más largo (8s) porque usa Tools (Google Maps)
+    return await withTimeout(
+        (async () => {
+            const result = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    tools: [{ googleMaps: {} }],
+                    toolConfig: { retrievalConfig: { latLng: { latitude: lat, longitude: lon } } }
                 }
-            }
-        }
-      }
+            });
+            return {
+                text: result.text,
+                groundingMetadata: result.candidates?.[0]?.groundingMetadata
+            };
+        })(),
+        8000,
+        fallbackResponse
     );
-
-    return {
-        text: result.text,
-        groundingMetadata: result.groundingMetadata
-    };
   } catch (error) {
-    console.error("Error getting local recs:", error);
-    return null;
+    console.error("Gemini API Error (Maps):", error);
+    return fallbackResponse;
   }
 };
