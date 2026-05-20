@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { ScarfIcon, JacketIcon, TShirtIcon, SunglassesIcon, UmbrellaIcon } from './OutfitIcons';
+import { getOutfitRecommendation } from '../lib/cozyAssets';
 
 interface OutfitWidgetProps {
   temperature: number;
   weatherCode: number;
   isDay: boolean;
+  apparentTemperature?: number;
+  windspeed?: number;
   lang: 'es' | 'en';
   label: string;
 }
 
-const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, isDay, lang, label }) => {
+const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, isDay, apparentTemperature, windspeed = 0, lang, label }) => {
   const [isBouncing, setIsBouncing] = useState(false);
 
   const triggerBounce = () => {
@@ -17,33 +19,9 @@ const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, i
     setIsBouncing(true);
     setTimeout(() => setIsBouncing(false), 600);
   };
-  
-  const isRain = (weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82);
-  const isSnow = (weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86);
-  const isClear = weatherCode === 0 || weatherCode === 1;
 
-  // Determine outfit
-  let IconComponent = TShirtIcon;
-  let text = lang === 'es' ? "Ropa ligera" : "Light clothes";
+  const outfit = getOutfitRecommendation(temperature, weatherCode, isDay, apparentTemperature ?? temperature, windspeed);
 
-  if (isRain) {
-      IconComponent = UmbrellaIcon;
-      text = lang === 'es' ? "Lleva paraguas" : "Take umbrella";
-  } else if (isSnow) {
-      IconComponent = ScarfIcon;
-      text = lang === 'es' ? "¡Abrígate mucho!" : "Bundle up!";
-  } else if (temperature < 10) {
-      IconComponent = ScarfIcon;
-      text = lang === 'es' ? "Bufanda necesaria" : "Scarf needed";
-  } else if (temperature < 18) {
-      IconComponent = JacketIcon;
-      text = lang === 'es' ? "Chaqueta ligera" : "Light jacket";
-  } else if (isClear && temperature > 22 && isDay) {
-      IconComponent = SunglassesIcon;
-      text = lang === 'es' ? "Gafas de sol" : "Sunglasses";
-  }
-
-  // Animation style
   const boingStyle = `
     @keyframes boing-widget {
       0% { transform: scale(1) rotate(-6deg); }
@@ -57,20 +35,28 @@ const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, i
   `;
 
   return (
-    <div 
-        className="flex flex-col items-center justify-center p-3 bg-white/40 rounded-2xl border border-white/50 backdrop-blur-sm shadow-sm cursor-pointer touch-manipulation select-none"
-        onClick={triggerBounce}
-        style={{ WebkitTapHighlightColor: 'transparent' }}
+    <div
+      className="home-v3-editorial-card home-v3-editorial-card--outfit storybook-panel flex cursor-pointer select-none items-center gap-2.5 rounded-[1.65rem] p-3.5 touch-manipulation"
+      onClick={triggerBounce}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <style>{boingStyle}</style>
-      <span className="text-[10px] font-bold text-pink-400 uppercase tracking-widest mb-1 text-center leading-tight">{label}</span>
-      <div 
-        className={`mb-1 transform transition-transform duration-300 origin-center ${isBouncing ? '' : 'hover:scale-110 active:scale-95'}`}
+      <div
+        className={`home-v3-card-orb shrink-0 transform origin-center transition-transform duration-300 ${isBouncing ? '' : 'hover:scale-110 active:scale-95'}`}
         style={isBouncing ? { animation: 'boing-widget 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' } : { transform: 'rotate(-6deg)' }}
       >
-        <IconComponent className="w-20 h-20" />
+        <img
+          src={outfit.src}
+          alt={outfit.alt[lang]}
+          className="cozy-card-asset h-14 w-14"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
-      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">{text}</span>
+      <div className="min-w-0">
+        <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.16em] text-[#d98c84]">{label}</span>
+        <span className="block text-[0.95rem] font-black leading-snug text-[#4d382f]">{outfit.text[lang]}</span>
+      </div>
     </div>
   );
 };

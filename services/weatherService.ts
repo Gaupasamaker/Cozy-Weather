@@ -8,21 +8,31 @@ export const searchCity = async (query: string, lang: string = 'es'): Promise<Ge
   
   try {
     // Map 'en'/'es' to Open-Meteo supported languages if needed, but they generally match ISO codes
-    const response = await fetch(`${GEO_API_URL}?name=${encodeURIComponent(query)}&count=5&language=${lang}&format=json`);
+    const response = await fetch(`${GEO_API_URL}?name=${encodeURIComponent(query)}&count=10&language=${lang}&format=json`);
     const data = await response.json();
     
     if (!data.results) return [];
     
-    return data.results.map((item: any) => ({
+    const seen = new Set<string>();
+
+    return data.results.reduce((cities: GeoLocation[], item: any) => {
+      const key = `${item.name}-${item.admin1 || ''}-${item.country || ''}`.toLowerCase();
+      if (seen.has(key)) return cities;
+      seen.add(key);
+
+      cities.push({
       name: item.name,
       latitude: item.latitude,
       longitude: item.longitude,
       country: item.country,
       admin1: item.admin1
-    }));
+      });
+
+      return cities;
+    }, []).slice(0, 6);
   } catch (error) {
     console.error("Error searching city:", error);
-    return [];
+    throw error;
   }
 };
 

@@ -1,42 +1,101 @@
 import React from 'react';
+import { CozyAsset } from '../lib/cozyAssets';
+import { Language } from '../services/cozyService';
+import { GeoLocation } from '../types';
 
 interface FavoriteTicketProps {
-  name: string;
+  city: GeoLocation;
+  meta: string;
+  weather?: {
+    temperature: number;
+    condition: string;
+    asset: CozyAsset;
+  };
+  lang: Language;
+  isCurrent: boolean;
+  temperatureUnit: 'c' | 'f';
+  formatTemperature: (value: number) => number;
+  label?: string;
+  featured?: boolean;
   onClick: () => void;
   onRemove: (e: React.MouseEvent) => void;
-  colorIndex: number;
 }
 
-const FavoriteTicket: React.FC<FavoriteTicketProps> = ({ name, onClick, onRemove, colorIndex }) => {
-  // Pastel palette for tickets
-  const colors = [
-    'bg-pink-100 border-pink-200 text-pink-600',
-    'bg-blue-100 border-blue-200 text-blue-600',
-    'bg-purple-100 border-purple-200 text-purple-600',
-    'bg-yellow-100 border-yellow-200 text-yellow-600',
-    'bg-green-100 border-green-200 text-green-600',
-  ];
-
-  const colorClass = colors[colorIndex % colors.length];
+const FavoriteTicket: React.FC<FavoriteTicketProps> = ({
+  city,
+  meta,
+  weather,
+  lang,
+  isCurrent,
+  temperatureUnit,
+  formatTemperature,
+  label,
+  featured = false,
+  onClick,
+  onRemove
+}) => {
+  const displayName = city.customName || city.name;
+  const weatherText = weather
+    ? `${formatTemperature(weather.temperature)}°${temperatureUnit === 'f' ? 'F' : ''} · ${weather.condition}`
+    : (lang === 'es' ? 'Tocar para ver clima' : 'Tap to view weather');
 
   return (
-    <div 
-      onClick={onClick}
-      className={`relative group flex items-center px-4 py-2 rounded-lg border-2 border-dashed ${colorClass} cursor-pointer transform hover:-translate-y-1 transition-all duration-300 shadow-sm min-w-max select-none`}
-    >
-      {/* Stitching effect holes */}
-      <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white/50"></div>
-      <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white/50"></div>
-
-      <span className="font-bold text-sm tracking-wide mr-2">{name}</span>
-      
-      {/* Remove Button (visible on hover or always on touch) */}
-      <button 
-        onClick={onRemove}
-        className="opacity-60 hover:opacity-100 hover:bg-white/50 rounded-full p-0.5 transition-all"
-        aria-label="Remove favorite"
+    <div className="favorite-card favorite-ticket group relative box-border w-full max-w-full overflow-hidden rounded-[1.7rem]">
+      <button
+        type="button"
+        onClick={onClick}
+        className="storybook-panel group flex w-full items-center gap-4 rounded-[1.7rem] p-3 pr-14 text-left transition hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]"
+        aria-label={lang === 'es' ? `Ver clima de ${displayName}` : `View weather for ${displayName}`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+        <span className="favorite-ticket__media flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/55">
+          {weather ? (
+            <img
+              src={weather.asset.src}
+              alt={weather.asset.alt[lang]}
+              className="cozy-card-asset h-10 w-10"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#d98c84]" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.5 8.7c0 5.8-8.5 10.5-8.5 10.5S3.5 14.5 3.5 8.7A4.5 4.5 0 0 1 12 6.6a4.5 4.5 0 0 1 8.5 2.1Z" />
+            </svg>
+          )}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-black text-[#4d382f]">{displayName}</span>
+          {(label || isCurrent) && (
+            <span className="mt-1 flex min-w-0 flex-wrap gap-1.5">
+            {label && (
+              <span className="shrink-0 rounded-full bg-[#fff2cf] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#b5792c]">
+                {label}
+              </span>
+            )}
+            {isCurrent && (
+              <span className="shrink-0 rounded-full bg-[#f7d6cc] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#b86f68]">
+                {lang === 'es' ? 'Actual' : 'Now'}
+              </span>
+            )}
+          </span>
+          )}
+          <span className="mt-1 block truncate text-sm font-bold leading-snug text-[#7c6a62]">{meta || (lang === 'es' ? 'Ciudad guardada' : 'Saved city')}</span>
+          <span className="mt-1 block truncate text-sm font-black text-[#5f4b42]">{weatherText}</span>
+        </span>
+      </button>
+
+      <span className="pointer-events-none absolute right-4 top-1/2 mt-4 -translate-y-1/2 text-2xl text-[#b5792c] transition-transform group-hover:translate-x-1">›</span>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove(event);
+        }}
+        className="absolute right-3 top-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#f3d4ca] bg-[#fff2ef]/95 text-[#b65555] shadow-sm transition hover:bg-[#f7d6cc] active:bg-[#f7d6cc]"
+        aria-label={lang === 'es' ? `Eliminar ${displayName}` : `Remove ${displayName}`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
           <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
         </svg>
       </button>

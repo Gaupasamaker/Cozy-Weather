@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local QA and visual review artifacts
+.playwright-cli/
+.qa-shots/
+docs/design/
+home-*.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,6 +1,6 @@
 {
   "name": "Cozy Weather",
-  "description": "Una aplicación del tiempo adorable y relajante con consejos personalizados.",
+  "description": "Una aplicación del tiempo adorable y relajante con datos de Open-Meteo y planes locales sin IA.",
   "requestFramePermissions": [
     "geolocation"
   ]

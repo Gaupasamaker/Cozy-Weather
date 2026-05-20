@@ -1,560 +1,1443 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { getCozyMessage, getQuickActivity } from './services/geminiService';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getCozyMessage, getQuickActivity, Language } from './services/cozyService';
 import { getWeather, searchCity, getReverseGeocoding } from './services/weatherService';
+import { getDeviceLocation } from './services/locationService';
+import { formatSnapshotAge, loadWeatherSnapshot, saveWeatherSnapshot } from './services/cacheService';
 import { WeatherData, GeoLocation } from './types';
-import WeatherIcon, { WindIcon, TempIcon } from './components/WeatherIcon';
-import CatAvatar from './components/CatAvatar'; 
-import DailyCard from './components/DailyCard';
+import { TempIcon } from './components/WeatherIcon';
 import HourlyForecast from './components/HourlyForecast';
-import AtmosphericBackground from './components/AtmosphericBackground';
 import OutfitWidget from './components/OutfitWidget';
 import ActivityWidget from './components/ActivityWidget';
 import ActivityModal from './components/ActivityModal';
 import FavoriteTicket from './components/FavoriteTicket';
 import PromoCard from './components/PromoCard';
+import WeatherAtmosphere from './components/WeatherAtmosphere';
+import { cozyDecorations, cozyWeatherAssets, getCozyMessageAsset, getHomeSceneAsset, getPlanAsset, getWeatherAsset } from './lib/cozyAssets';
+import { getPlanBundle, PlanSuggestion } from './services/planService';
 
-type Language = 'es' | 'en';
+type ConditionKey = 'clear' | 'cloudy' | 'rain' | 'snow' | 'storm' | 'fog' | 'night';
+type AppTab = 'home' | 'search' | 'favorites' | 'plans' | 'settings';
+type TemperatureUnit = 'c' | 'f';
+type WindUnit = 'kmh' | 'mph';
+
+const toDisplayTemperature = (value: number, unit: TemperatureUnit) =>
+  unit === 'f' ? Math.round((value * 9) / 5 + 32) : Math.round(value);
+
+const toDisplayWind = (value: number, unit: WindUnit) =>
+  unit === 'mph' ? Math.round(value * 6.21371) / 10 : Math.round(value * 10) / 10;
 
 const translations = {
   es: {
-    searchPlaceholder: "Buscar ciudad",
-    wind: "Viento",
-    minMax: "Min/Max",
-    feelsLike: "Sensación Térmica",
-    nextDays: "Próximos días",
-    hourly: "Pronóstico por horas",
-    loading: "Consultando a las nubes...",
-    error: "No pudimos obtener el clima. Intenta de nuevo.",
-    retry: "Intentar de nuevo",
-    footer: "Hecho con 💖 y Gemini",
-    defaultLocation: "Tu Ubicación",
-    outfitTitle: "Outfit Recomendado",
-    favPrompt: "¿Qué nombre le ponemos a este lugar? (ej. Casa, Trabajo)",
-    mascotMode: "Cambiar Mascota",
-    shareBtn: "Compartir",
-    loadingPlan: "Consultando..."
+    searchPlaceholder: 'Buscar ciudad',
+    wind: 'Viento',
+    minMax: 'Min/Max',
+    feelsLike: 'Sensación térmica',
+    nextDays: 'Próximos días',
+    hourly: 'Por horas',
+    loading: 'Consultando a las nubes...',
+    error: 'No pudimos obtener el clima. Intenta de nuevo.',
+    retry: 'Intentar de nuevo',
+    footer: 'Weather data by Open-Meteo',
+    defaultLocation: 'Tu ubicación',
+    outfitTitle: 'Qué ponerte',
+    favPrompt: '¿Qué nombre le ponemos a este lugar? (ej. Casa, Trabajo)',
+    shareBtn: 'Compartir',
+    loadingPlan: 'Preparando plan...',
+    manualHint: 'Busca una ciudad para empezar, o permite la ubicación cuando quieras.',
+    cachedWeather: 'Mostrando último clima guardado',
+    about: 'Privacidad',
+    aboutTitle: 'Privacidad y datos',
+    aboutBody: [
+      'Cozy Weather usa Open-Meteo para obtener datos del clima.',
+      'Tus favoritos y búsquedas recientes se guardan localmente en este dispositivo.',
+      'Si usas tu ubicación actual, el navegador o el sistema puede pedirte permiso.',
+      'La ubicación solo se usa si tú la autorizas.'
+    ],
+    close: 'Cerrar',
+    today: 'Hoy',
+    plan: 'Plan cozy',
+    save: 'Guardar lugar',
+    saved: 'Lugar guardado',
+    useCurrentLocation: 'Usar mi ubicación actual',
+    useCurrentLocationHint: 'Detecta tu ciudad y actualiza la Home.',
+    currentCity: 'Ciudad actual',
+    clearRecentSearches: 'Borrar búsquedas recientes',
+    clearFavorites: 'Borrar favoritos',
+    clearRecentSearchesHint: 'Quita el historial guardado en este dispositivo.',
+    clearFavoritesHint: 'Elimina todas tus ciudades guardadas.',
+    confirmClearFavorites: '¿Quieres borrar todos tus favoritos?',
+    language: 'Idioma',
+    temperature: 'Temperatura',
+    units: 'Unidades',
+    location: 'Ubicación',
+    localData: 'Datos locales',
+    credits: 'Créditos',
+    visualAssets: 'Cozy Weather visual assets',
+    version: 'Versión V1',
+    recentSearches: 'Búsquedas recientes',
+    favoritesEmptyTitle: 'Tus ciudades favoritas',
+    favoritesEmptyBody: 'Guarda una ciudad tocando el corazón de la Home.',
+    searchResultsTitle: 'Resultados',
+    searchingCities: 'Buscando ciudades...',
+    noSearchResults: 'No encontramos esa ciudad. Prueba con otro nombre.',
+    searchError: 'Algo no ha ido bien buscando la ciudad. Inténtalo de nuevo.',
+    locationError: 'No hemos podido acceder a tu ubicación. Puedes buscar una ciudad manualmente.',
+    condition: {
+      clear: 'Soleado',
+      cloudy: 'Nublado',
+      rain: 'Lluvia',
+      snow: 'Nieve',
+      storm: 'Tormenta',
+      fog: 'Bruma',
+      night: 'Noche tranquila'
+    }
   },
   en: {
-    searchPlaceholder: "Search city",
-    wind: "Wind",
-    minMax: "Min/Max",
-    feelsLike: "Feels Like",
-    nextDays: "Next days",
-    hourly: "Hourly forecast",
-    loading: "Consulting the clouds...",
-    error: "Could not get weather. Try again.",
-    retry: "Try again",
-    footer: "Made with 💖 and Gemini",
-    defaultLocation: "Your Location",
-    outfitTitle: "Recommended Outfit",
-    favPrompt: "What nickname should we give this place? (e.g. Home, Work)",
-    mascotMode: "Change Mascot",
-    shareBtn: "Share",
-    loadingPlan: "Thinking..."
+    searchPlaceholder: 'Search city',
+    wind: 'Wind',
+    minMax: 'Min/Max',
+    feelsLike: 'Feels like',
+    nextDays: 'Next days',
+    hourly: 'By hour',
+    loading: 'Consulting the clouds...',
+    error: 'Could not get weather. Try again.',
+    retry: 'Try again',
+    footer: 'Weather data by Open-Meteo',
+    defaultLocation: 'Your location',
+    outfitTitle: 'What to wear',
+    favPrompt: 'What nickname should we give this place? (e.g. Home, Work)',
+    shareBtn: 'Share',
+    loadingPlan: 'Preparing plan...',
+    manualHint: 'Search for a city to start, or allow location whenever you like.',
+    cachedWeather: 'Showing last saved weather',
+    about: 'Privacy',
+    aboutTitle: 'Privacy and data',
+    aboutBody: [
+      'Cozy Weather uses Open-Meteo to fetch weather data.',
+      'Your favorites and recent searches are stored locally on this device.',
+      'If you use your current location, the browser or system may ask for permission.',
+      'Location is only used when you allow it.'
+    ],
+    close: 'Close',
+    today: 'Today',
+    plan: 'Cozy plan',
+    save: 'Save place',
+    saved: 'Saved place',
+    useCurrentLocation: 'Use my current location',
+    useCurrentLocationHint: 'Detect your city and update Home.',
+    currentCity: 'Current city',
+    clearRecentSearches: 'Clear recent searches',
+    clearFavorites: 'Clear favorites',
+    clearRecentSearchesHint: 'Remove the saved history on this device.',
+    clearFavoritesHint: 'Delete all your saved cities.',
+    confirmClearFavorites: 'Do you want to clear all favorites?',
+    language: 'Language',
+    temperature: 'Temperature',
+    units: 'Units',
+    location: 'Location',
+    localData: 'Local data',
+    credits: 'Credits',
+    visualAssets: 'Cozy Weather visual assets',
+    version: 'Version V1',
+    recentSearches: 'Recent searches',
+    favoritesEmptyTitle: 'Your favorite cities',
+    favoritesEmptyBody: 'Save a city by tapping the heart on Home.',
+    searchResultsTitle: 'Results',
+    searchingCities: 'Searching cities...',
+    noSearchResults: 'We could not find that city. Try another name.',
+    searchError: 'Something went wrong while searching. Try again.',
+    locationError: 'We could not access your location. You can search for a city manually.',
+    condition: {
+      clear: 'Sunny',
+      cloudy: 'Cloudy',
+      rain: 'Rain',
+      snow: 'Snow',
+      storm: 'Storm',
+      fog: 'Misty',
+      night: 'Quiet night'
+    }
   }
 };
 
+const getConditionKey = (weatherCode: number, isDay: boolean): ConditionKey => {
+  if (!isDay) return 'night';
+  if (weatherCode >= 95) return 'storm';
+  if ((weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86)) return 'snow';
+  if ((weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82)) return 'rain';
+  if (weatherCode === 45 || weatherCode === 48) return 'fog';
+  if (weatherCode === 0 || weatherCode === 1) return 'clear';
+  return 'cloudy';
+};
+
+const getForecastConditionLabel = (weatherCode: number, lang: Language) => {
+  if (weatherCode >= 95) return lang === 'es' ? 'Tormenta' : 'Storm';
+  if ((weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86)) {
+    return lang === 'es' ? 'Nieve' : 'Snow';
+  }
+  if ((weatherCode >= 61 && weatherCode <= 67) || weatherCode >= 80) {
+    return lang === 'es' ? 'Lluvia ligera' : 'Light rain';
+  }
+  if (weatherCode >= 51 && weatherCode <= 57) {
+    return lang === 'es' ? 'Llovizna' : 'Drizzle';
+  }
+  if (weatherCode === 45 || weatherCode === 48) {
+    return lang === 'es' ? 'Bruma' : 'Misty';
+  }
+  if (weatherCode === 0) {
+    return lang === 'es' ? 'Soleado' : 'Sunny';
+  }
+  if (weatherCode === 1 || weatherCode === 2) {
+    return lang === 'es' ? 'Parcialmente nublado' : 'Partly cloudy';
+  }
+  return lang === 'es' ? 'Nublado' : 'Cloudy';
+};
+
+const tabLabels: Record<Language, Record<AppTab, string>> = {
+  es: {
+    home: 'Inicio',
+    search: 'Buscar',
+    favorites: 'Favoritos',
+    plans: 'Planes',
+    settings: 'Ajustes'
+  },
+  en: {
+    home: 'Home',
+    search: 'Search',
+    favorites: 'Favorites',
+    plans: 'Plans',
+    settings: 'Settings'
+  }
+};
+
+const placeholderCopy: Record<Language, Record<Exclude<AppTab, 'home'>, { title: string; body: string }>> = {
+  es: {
+    search: { title: 'Buscar ciudad', body: 'Encuentra una ciudad para ver su clima cozy.' },
+    favorites: { title: 'Favoritos', body: 'Tus ciudades guardadas aparecerán aquí.' },
+    plans: { title: 'Planes', body: 'Ideas sencillas según el clima.' },
+    settings: { title: 'Ajustes', body: 'Idioma, privacidad, unidades y preferencias.' }
+  },
+  en: {
+    search: { title: 'Search city', body: 'Find a city to see its cozy weather.' },
+    favorites: { title: 'Favorites', body: 'Your saved cities will appear here.' },
+    plans: { title: 'Plans', body: 'Simple ideas based on the weather.' },
+    settings: { title: 'Settings', body: 'Language, privacy, units, and preferences.' }
+  }
+};
+
+const TabIcon = ({ tab, active }: { tab: AppTab; active: boolean }) => {
+  const cls = `h-6 w-6 ${active ? 'text-[#d98c84]' : 'text-[#6f574b]'}`;
+  if (tab === 'home') {
+    return <path className={cls} fill="currentColor" d="M4 10.6 12 4l8 6.6v8.1c0 .8-.6 1.3-1.4 1.3h-4.1v-5.5h-5V20H5.4c-.8 0-1.4-.5-1.4-1.3v-8.1Z" />;
+  }
+  if (tab === 'search') {
+    return <path className={cls} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="m20 20-4.5-4.5m1.5-5A6.5 6.5 0 1 1 4 10.5a6.5 6.5 0 0 1 13 0Z" />;
+  }
+  if (tab === 'favorites') {
+    return <path className={cls} fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" d="M20.5 8.7c0 5.8-8.5 10.5-8.5 10.5S3.5 14.5 3.5 8.7A4.5 4.5 0 0 1 12 6.6a4.5 4.5 0 0 1 8.5 2.1Z" />;
+  }
+  if (tab === 'plans') {
+    return <path className={cls} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 5.5 10 4l4 1.5 5-1.5v14.5L14 20l-4-1.5L5 20V5.5Zm5-1.5v14.5m4-13v14.5" />;
+  }
+  return <path className={cls} fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" d="M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Zm0-4.2v2m0 12v2m8-8h-2M6 12H4m13.7-5.7-1.4 1.4M7.7 16.3l-1.4 1.4m0-11.4 1.4 1.4m8.6 8.6 1.4 1.4" />;
+};
+
+const cityKey = (city: GeoLocation) => `${city.name}-${city.admin1 || ''}-${city.country || ''}`.toLowerCase();
+const geoKey = (city: GeoLocation) => `${city.latitude.toFixed(3)},${city.longitude.toFixed(3)}`;
+
+const CityCard = ({
+  city,
+  onSelect,
+  compact = false
+}: {
+  city: GeoLocation;
+  onSelect: (city: GeoLocation) => void;
+  compact?: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={() => onSelect(city)}
+    className={`city-card storybook-panel flex w-full items-center gap-3 rounded-[1.4rem] text-left transition hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99] ${compact ? 'p-3' : 'p-4'}`}
+  >
+    <span className="city-card__icon flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f7d6cc] text-[#d98c84]">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 21s6-5.1 6-11a6 6 0 0 0-12 0c0 5.9 6 11 6 11Z" />
+        <path d="M12 12.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z" />
+      </svg>
+    </span>
+    <span className="min-w-0">
+      <span className="block truncate text-base font-black text-[#4d382f]">{city.name}</span>
+      <span className="block truncate text-sm font-bold text-[#7c6a62]">
+        {[city.admin1, city.country].filter(Boolean).join(', ') || city.country || ''}
+      </span>
+    </span>
+  </button>
+);
+
+const PlanCard = ({
+  plan,
+  lang,
+  label,
+  featured = false,
+  onSelect
+}: {
+  plan: PlanSuggestion;
+  lang: Language;
+  label?: string;
+  featured?: boolean;
+  onSelect: (plan: PlanSuggestion) => void;
+}) => (
+  <button
+    type="button"
+    onClick={() => onSelect(plan)}
+    className={`plan-card storybook-panel group flex w-full items-center gap-4 rounded-[1.7rem] text-left transition hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99] ${featured ? 'p-4' : 'p-3'}`}
+  >
+    <span className={`plan-card__media ${featured ? 'h-16 w-16' : 'h-12 w-12'} flex shrink-0 items-center justify-center rounded-2xl bg-white/55`}>
+      <img
+        src={plan.asset.src}
+        alt={plan.asset.alt[lang]}
+        className={`${featured ? 'h-14 w-14' : 'h-10 w-10'} cozy-card-asset`}
+        loading={featured ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    </span>
+    <span className="min-w-0 flex-1">
+      {label && <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-[#d49a3a]">{label}</span>}
+      <span className={`${featured ? 'text-lg' : 'text-base'} block truncate font-black text-[#4d382f]`}>{plan.title}</span>
+      <span className="mt-1 block text-sm font-bold leading-snug text-[#7c6a62]">{plan.description}</span>
+    </span>
+    <span className="shrink-0 text-2xl text-[#b5792c] transition-transform group-hover:translate-x-1">›</span>
+  </button>
+);
+
+const SettingsRow = ({
+  title,
+  description,
+  value,
+  onClick,
+  tone = 'default'
+}: {
+  title: string;
+  description?: string;
+  value?: string;
+  onClick?: () => void;
+  tone?: 'default' | 'danger';
+}) => {
+  const content = (
+    <>
+      <span className="min-w-0">
+        <span className={`block font-black ${tone === 'danger' ? 'text-[#b65555]' : 'text-[#4d382f]'}`}>{title}</span>
+        {description && <span className="mt-1 block text-sm font-bold leading-snug text-[#7c6a62]">{description}</span>}
+      </span>
+      <span className={`shrink-0 text-sm font-black ${tone === 'danger' ? 'text-[#b65555]' : 'text-[#b5792c]'}`}>{value}</span>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="settings-row storybook-panel flex items-center justify-between gap-4 rounded-2xl p-4">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="settings-row storybook-panel flex w-full items-center justify-between gap-4 rounded-2xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]"
+    >
+      {content}
+    </button>
+  );
+};
+
+const SegmentedControl = <T extends string>({
+  value,
+  options,
+  onChange
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) => (
+  <div className="segmented-control grid grid-cols-2 gap-1 rounded-2xl bg-white/55 p-1">
+    {options.map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        onClick={() => onChange(option.value)}
+        className={`rounded-[1.1rem] px-3 py-2 text-sm font-black transition ${
+          value === option.value
+            ? 'bg-[#f7d6cc] text-[#b86f68] shadow-sm'
+            : 'text-[#7c6a62] hover:bg-white/70'
+        }`}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+);
+
 const App: React.FC = () => {
-  const [language, setLanguage] = useState<Language>('es');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === 'undefined') return 'es';
+    return localStorage.getItem('cozyWeatherLanguage') === 'en' ? 'en' : 'es';
+  });
+  const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit>(() => {
+    if (typeof window === 'undefined') return 'c';
+    return localStorage.getItem('cozyWeatherTemperatureUnit') === 'f' ? 'f' : 'c';
+  });
+  const [windUnit, setWindUnit] = useState<WindUnit>(() => {
+    if (typeof window === 'undefined') return 'kmh';
+    return localStorage.getItem('cozyWeatherWindUnit') === 'mph' ? 'mph' : 'kmh';
+  });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeoLocation[]>([]);
-  const [aiMessage, setAiMessage] = useState<string>('');
-  const [activitySuggestion, setActivitySuggestion] = useState<string>('');
-  const [showSearch, setShowSearch] = useState(false);
-  
-  // Mascot Toggle: true = Cat, false = Icon
-  const [showMascot, setShowMascot] = useState(true);
-  
-  const [showPromo, setShowPromo] = useState(false); 
-  const [showActivityModal, setShowActivityModal] = useState(false); 
-  
-  // Lazy initialization to prevent overwriting localStorage on mount
-  const [favorites, setFavorites] = useState<GeoLocation[]>(() => {
-    if (typeof window !== 'undefined') {
-        try {
-            const saved = localStorage.getItem('cozyWeatherFavs');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            console.error("Error parsing favorites", e);
-            return [];
-        }
+  const [recentSearches, setRecentSearches] = useState<GeoLocation[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('cozyWeatherRecentCities');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error parsing recent searches', error);
+      return [];
     }
-    return [];
+  });
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationErrorMessage, setLocationErrorMessage] = useState<string | null>(null);
+  const [cozyMessage, setCozyMessage] = useState('');
+  const [activitySuggestion, setActivitySuggestion] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanSuggestion | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
+  const [cacheNotice, setCacheNotice] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AppTab>('home');
+  const searchRequestId = useRef(0);
+  const fetchingFavoriteWeather = useRef(new Set<string>());
+  const scrollRegionRef = useRef<HTMLElement | null>(null);
+  const [favoriteWeather, setFavoriteWeather] = useState<Record<string, WeatherData>>({});
+  const [favorites, setFavorites] = useState<GeoLocation[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('cozyWeatherFavs');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error parsing favorites', error);
+      return [];
+    }
   });
 
   const t = translations[language];
+  const condition = weather ? getConditionKey(weather.current_weather.weathercode, weather.current_weather.is_day === 1) : 'cloudy';
+  const sceneKey = weather && location
+    ? `${location.latitude.toFixed(2)}-${location.longitude.toFixed(2)}-${weather.current_weather.weathercode}-${weather.current_weather.is_day}`
+    : 'initial-scene';
+  const conditionLabel = t.condition[condition];
+  const currentWeatherAsset = weather
+    ? getWeatherAsset(
+        weather.current_weather.weathercode,
+        weather.current_weather.temperature,
+        weather.current_weather.windspeed,
+        weather.current_weather.is_day === 1
+      )
+    : cozyWeatherAssets.cloudy;
+  const currentHomeScene = weather
+    ? getHomeSceneAsset(
+        weather.current_weather.weathercode,
+        weather.current_weather.temperature,
+        weather.current_weather.windspeed,
+        weather.current_weather.is_day === 1
+      )
+    : null;
+  const isNightHome = weather?.current_weather.is_day === 0;
+  const homeSceneTone = condition === 'night'
+    ? 'night'
+    : (condition === 'rain' || condition === 'storm')
+      ? 'rain'
+      : condition === 'clear'
+        ? 'sunny'
+        : 'cloudy';
+  const cozyMessageAsset = weather
+    ? getCozyMessageAsset(
+        weather.current_weather.weathercode,
+        weather.current_weather.temperature,
+        weather.current_weather.is_day === 1,
+        weather.current_weather.apparent_temperature ?? weather.current_weather.temperature,
+        weather.current_weather.windspeed
+      )
+    : cozyDecorations.hearts;
+  const dateLabel = useMemo(() => {
+    return new Date().toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  }, [language]);
+  const planBundle = useMemo(() => getPlanBundle({
+    weatherCode: weather?.current_weather.weathercode,
+    temperature: weather?.current_weather.temperature,
+    apparentTemperature: weather?.current_weather.apparent_temperature,
+    windspeed: weather?.current_weather.windspeed,
+    isDay: weather ? weather.current_weather.is_day === 1 : true,
+    lang: language
+  }), [weather, language]);
+  const currentPlanAsset = weather
+    ? getPlanAsset(
+        activitySuggestion || planBundle.primary.title,
+        weather.current_weather.weathercode,
+        weather.current_weather.temperature,
+        weather.current_weather.is_day === 1
+      )
+    : cozyDecorations.picnic;
+  const formatTemperature = useCallback((value: number) => toDisplayTemperature(value, temperatureUnit), [temperatureUnit]);
+  const formatWind = useCallback((value: number) => toDisplayWind(value, windUnit), [windUnit]);
 
-  // Save favorites whenever they change
   useEffect(() => {
     localStorage.setItem('cozyWeatherFavs', JSON.stringify(favorites));
   }, [favorites]);
 
-  // Initial Load - Get Location with Timeout Protection
   useEffect(() => {
+    requestAnimationFrame(() => {
+      scrollRegionRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    });
+  }, [activeTab, sceneKey]);
+
+  useEffect(() => {
+    localStorage.setItem('cozyWeatherLanguage', language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('cozyWeatherTemperatureUnit', temperatureUnit);
+  }, [temperatureUnit]);
+
+  useEffect(() => {
+    localStorage.setItem('cozyWeatherWindUnit', windUnit);
+  }, [windUnit]);
+
+  useEffect(() => {
+    if (activeTab !== 'favorites' || favorites.length === 0) return;
+
+    let cancelled = false;
+    const missingFavorites = favorites
+      .filter(fav => !favoriteWeather[geoKey(fav)] && !fetchingFavoriteWeather.current.has(geoKey(fav)))
+      .slice(0, 8);
+
+    if (missingFavorites.length === 0) return;
+
+    missingFavorites.forEach(async (fav) => {
+      const key = geoKey(fav);
+      fetchingFavoriteWeather.current.add(key);
+      const data = await getWeather(fav.latitude, fav.longitude);
+      fetchingFavoriteWeather.current.delete(key);
+      if (!data || cancelled) return;
+      setFavoriteWeather(prev => ({ ...prev, [key]: data }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, favorites, favoriteWeather]);
+
+  useEffect(() => {
+    localStorage.setItem('cozyWeatherRecentCities', JSON.stringify(recentSearches));
+  }, [recentSearches]);
+
+  const applyWeatherState = useCallback((city: GeoLocation, weatherData: WeatherData, lang: Language, notice: string | null = null) => {
+    setLocation(city);
+    setWeather(weatherData);
+    setCacheNotice(notice);
+
+    getCozyMessage(
+      weatherData.current_weather.weathercode,
+      weatherData.current_weather.temperature,
+      weatherData.current_weather.is_day === 1,
+      city.name,
+      lang,
+      weatherData.current_weather.apparent_temperature ?? weatherData.current_weather.temperature,
+      weatherData.current_weather.windspeed
+    ).then(setCozyMessage);
+
+    getQuickActivity(
+      weatherData.current_weather.weathercode,
+      weatherData.current_weather.temperature,
+      weatherData.current_weather.is_day === 1,
+      lang,
+      weatherData.current_weather.apparent_temperature ?? weatherData.current_weather.temperature,
+      weatherData.current_weather.windspeed
+    ).then(setActivitySuggestion);
+  }, []);
+
+  useEffect(() => {
+    const hydrateLocalCopy = async () => {
+      const cached = loadWeatherSnapshot();
+      if (cached?.weather && cached.location) {
+        applyWeatherState(
+          cached.location,
+          cached.weather,
+          language,
+          `${translations[language].cachedWeather} · ${formatSnapshotAge(cached.savedAt, language)}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const defaultLat = 40.4168;
+      const defaultLon = -3.7038;
+      const defaultLocation = { name: 'Madrid', latitude: defaultLat, longitude: defaultLon, country: 'España' };
+      setLocation(defaultLocation);
+      await fetchWeatherData(defaultLat, defaultLon, 'Madrid', language, defaultLocation);
+    };
+
     const loadLocation = async () => {
-        // Helper to load default Madrid
-        const loadDefault = async () => {
-             console.log("Loading default location (Madrid)");
-             const defaultLat = 40.4168;
-             const defaultLon = -3.7038;
-             setLocation({ name: "Madrid", latitude: defaultLat, longitude: defaultLon, country: "España" });
-             await fetchWeatherData(defaultLat, defaultLon, "Madrid", language);
-        };
-
-        if (!("geolocation" in navigator)) {
-             await loadDefault();
-             return;
-        }
-
-        // Create a promise for geolocation to handle timeouts
-        const getPosition = new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 5000, // 5 seconds timeout
-                maximumAge: 60000 // Accept cached positions up to 1 min old
-            });
-        });
-
-        try {
-            // Race between geolocation and a hard timeout logic (though navigator has timeout, this is extra safety)
-            const position = await getPosition;
-            
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            
-            // Get actual city name via reverse geocoding
-            const cityName = await getReverseGeocoding(lat, lon, language);
-
-            setLocation({
-                name: cityName,
-                latitude: lat,
-                longitude: lon
-            });
-            await fetchWeatherData(lat, lon, cityName, language);
-
-        } catch (err) {
-            console.log("Geolocation failed or timed out:", err);
-            await loadDefault();
-        }
+      try {
+        const position = await getDeviceLocation();
+        const cityName = await getReverseGeocoding(position.latitude, position.longitude, language);
+        const currentLocation = { name: cityName, latitude: position.latitude, longitude: position.longitude };
+        setLocation(currentLocation);
+        await fetchWeatherData(position.latitude, position.longitude, cityName, language, currentLocation);
+      } catch {
+        await hydrateLocalCopy();
+      }
     };
 
     loadLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchWeatherData = async (lat: number, lon: number, cityName: string, lang: Language) => {
+  const fetchWeatherData = async (
+    lat: number,
+    lon: number,
+    cityName: string,
+    lang: Language,
+    snapshotLocation?: GeoLocation
+  ) => {
     setLoading(true);
     setError(null);
-    setAiMessage(''); // Reset message while loading
-    setActivitySuggestion(''); // Reset suggestion
-    
+    setCozyMessage('');
+    setActivitySuggestion('');
+
     try {
-      // Parallel execution to avoid waiting too long if one fails
-      const weatherPromise = getWeather(lat, lon);
-      
-      const data = await weatherPromise;
+      const data = await getWeather(lat, lon);
 
       if (data) {
-        setWeather(data);
-        
-        // We trigger AI calls but don't await them strictly for the UI to be responsive
-        // The state updates will come in when they finish
-        getCozyMessage(
-            data.current_weather.weathercode,
-            data.current_weather.temperature,
-            data.current_weather.is_day === 1,
-            cityName,
-            lang
-        ).then(msg => setAiMessage(msg));
-
-        getQuickActivity(
-            data.current_weather.weathercode,
-            data.current_weather.temperature,
-            data.current_weather.is_day === 1,
-            lang
-        ).then(act => setActivitySuggestion(act));
-
+        const resolvedLocation: GeoLocation = snapshotLocation ?? { name: cityName, latitude: lat, longitude: lon };
+        applyWeatherState(resolvedLocation, data, lang);
+        saveWeatherSnapshot({
+          location: resolvedLocation,
+          weather: data,
+          language: lang
+        });
       } else {
-        setError(translations[lang].error);
+        showCachedOrError(lang);
       }
-    } catch (e) {
-      setError(translations[lang].error);
+    } catch (error) {
+      showCachedOrError(lang);
     } finally {
-      // Ensure loading spinner stops
       setLoading(false);
     }
   };
 
-  const handleSearch = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query.length > 2) {
-      const results = await searchCity(query, language);
-      setSearchResults(results);
+  const showCachedOrError = (lang: Language) => {
+    const cached = loadWeatherSnapshot();
+    if (cached?.weather && cached.location) {
+      applyWeatherState(
+        cached.location,
+        cached.weather,
+        lang,
+        `${translations[lang].cachedWeather} · ${formatSnapshotAge(cached.savedAt, lang)}`
+      );
     } else {
-      setSearchResults([]);
+      setError(translations[lang].error);
     }
-  }, [language]);
+  };
+
+  const rememberRecentCity = useCallback((city: GeoLocation) => {
+    setRecentSearches(prev => {
+      const withoutDuplicate = prev.filter(item => cityKey(item) !== cityKey(city));
+      return [city, ...withoutDuplicate].slice(0, 5);
+    });
+  }, []);
+
+  const handleSearch = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const query = event.target.value;
+    const trimmedQuery = query.trim();
+    const requestId = searchRequestId.current + 1;
+    searchRequestId.current = requestId;
+
+    setSearchQuery(query);
+    setShowSearch(true);
+    setSearchErrorMessage(null);
+    setLocationErrorMessage(null);
+
+    if (trimmedQuery.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+
+    try {
+      const results = await searchCity(trimmedQuery, language);
+      if (searchRequestId.current !== requestId) return;
+      setSearchResults(results);
+    } catch (error) {
+      if (searchRequestId.current !== requestId) return;
+      console.error('Search failed', error);
+      setSearchResults([]);
+      setSearchErrorMessage(t.searchError);
+    } finally {
+      if (searchRequestId.current === requestId) {
+        setSearchLoading(false);
+      }
+    }
+  }, [language, t.searchError]);
 
   const selectCity = (city: GeoLocation) => {
+    rememberRecentCity(city);
     setLocation(city);
     setSearchQuery('');
     setSearchResults([]);
     setShowSearch(false);
-    fetchWeatherData(city.latitude, city.longitude, city.name, language);
+    setSearchErrorMessage(null);
+    setLocationErrorMessage(null);
+    setActiveTab('home');
+    fetchWeatherData(city.latitude, city.longitude, city.name, language, city);
+  };
+
+  const useCurrentLocation = async () => {
+    setLocationLoading(true);
+    setLocationErrorMessage(null);
+    setSearchErrorMessage(null);
+
+    try {
+      const position = await getDeviceLocation();
+      const cityName = await getReverseGeocoding(position.latitude, position.longitude, language);
+      const currentCity: GeoLocation = {
+        name: cityName,
+        latitude: position.latitude,
+        longitude: position.longitude
+      };
+      rememberRecentCity(currentCity);
+      setLocation(currentCity);
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearch(false);
+      setActiveTab('home');
+      await fetchWeatherData(position.latitude, position.longitude, cityName, language, currentCity);
+    } catch {
+      setLocationErrorMessage(t.locationError);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    setSearchResults([]);
+    setSearchQuery('');
+    setShowSearch(false);
+  };
+
+  const clearFavorites = () => {
+    setFavorites([]);
+    setFavoriteWeather({});
+    setShowClearFavoritesConfirm(false);
   };
 
   const toggleLanguage = () => {
     const newLang = language === 'es' ? 'en' : 'es';
     setLanguage(newLang);
-    
-    // If we have a location, refresh the data to get the new AI message and potential generic location name update
+
     if (location) {
-        let newName = location.name;
-        // If the location name was the generic one, translate it
-        if (location.name === translations['es'].defaultLocation || location.name === translations['en'].defaultLocation) {
-             newName = translations[newLang].defaultLocation;
-             setLocation({ ...location, name: newName });
-        }
-        fetchWeatherData(location.latitude, location.longitude, newName, newLang);
+      let newName = location.name;
+      if (location.name === translations.es.defaultLocation || location.name === translations.en.defaultLocation) {
+        newName = translations[newLang].defaultLocation;
+        setLocation({ ...location, name: newName });
+      }
+      fetchWeatherData(location.latitude, location.longitude, newName, newLang, { ...location, name: newName });
     }
   };
 
-  // Favorites Logic
   const isCurrentLocationFavorite = useCallback(() => {
     if (!location) return false;
-    // Increased tolerance to 0.005 (approx 500m) to account for GPS drift or slight API differences
-    return favorites.some(fav => 
-      Math.abs(fav.latitude - location.latitude) < 0.005 && 
+    return favorites.some(fav =>
+      Math.abs(fav.latitude - location.latitude) < 0.005 &&
       Math.abs(fav.longitude - location.longitude) < 0.005
     );
   }, [location, favorites]);
+
+  const isSameLocation = useCallback((city: GeoLocation) => {
+    if (!location) return false;
+    return Math.abs(city.latitude - location.latitude) < 0.005 &&
+      Math.abs(city.longitude - location.longitude) < 0.005;
+  }, [location]);
 
   const toggleFavorite = () => {
     if (!location) return;
 
     if (isCurrentLocationFavorite()) {
-      // Remove
-      setFavorites(prev => prev.filter(fav => 
-        Math.abs(fav.latitude - location.latitude) >= 0.005 || 
+      setFavorites(prev => prev.filter(fav =>
+        Math.abs(fav.latitude - location.latitude) >= 0.005 ||
         Math.abs(fav.longitude - location.longitude) >= 0.005
       ));
-    } else {
-      // Add
-      // Use setTimeout to ensure UI is ready and unblocked before prompt
-      setTimeout(() => {
-        const defaultName = location.customName || location.name;
-        const customName = window.prompt(t.favPrompt, defaultName);
-        if (customName !== null) { // If not cancelled
-            const finalName = customName.trim() || defaultName;
-            const newFav = { ...location, customName: finalName };
-            setFavorites(prev => [...prev, newFav]);
-        }
-      }, 50);
+      return;
     }
+
+    setTimeout(() => {
+      const defaultName = location.customName || location.name;
+      let customName: string | null = defaultName;
+      try {
+        customName = window.prompt(t.favPrompt, defaultName);
+      } catch {
+        customName = defaultName;
+      }
+      if (customName !== null) {
+        setFavorites(prev => [...prev, { ...location, customName: customName.trim() || defaultName }]);
+      }
+    }, 50);
   };
 
-  const removeFavorite = (e: React.MouseEvent, lat: number, lon: number) => {
-    e.stopPropagation();
-    setFavorites(prev => prev.filter(fav => 
-        Math.abs(fav.latitude - lat) >= 0.005 || 
-        Math.abs(fav.longitude - lon) >= 0.005
+  const removeFavorite = (event: React.MouseEvent, lat: number, lon: number) => {
+    event.stopPropagation();
+    setFavorites(prev => prev.filter(fav =>
+      Math.abs(fav.latitude - lat) >= 0.005 ||
+      Math.abs(fav.longitude - lon) >= 0.005
     ));
   };
 
-  const toggleMascot = () => {
-      setShowMascot(prev => !prev);
-  };
-
-  // Background gradient based on time of day (mock logic since we have is_day)
-  const getBackgroundClass = () => {
-    if (!weather) return 'bg-gradient-to-br from-pink-100 to-purple-200';
-    return weather.current_weather.is_day 
-      ? 'bg-gradient-to-br from-blue-100 via-pink-100 to-yellow-100' // Day: soft blue/pink
-      : 'bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200'; // Night: slightly darker pastel
+  const openPlanModal = (plan: PlanSuggestion) => {
+    if (!location) return;
+    setSelectedPlan(plan);
+    setShowActivityModal(true);
   };
 
   return (
-    <div className={`min-h-screen w-full flex flex-col items-center py-8 px-4 transition-colors duration-1000 relative overflow-hidden ${getBackgroundClass()}`}>
-      
-      {/* Promo Card Overlay */}
+    <div className={`storybook-shell relative w-full overflow-x-hidden font-sans ${activeTab === 'home' ? 'storybook-shell--home' : ''} ${activeTab === 'home' ? `storybook-shell--home-${homeSceneTone}` : ''} ${activeTab === 'home' && isNightHome ? 'storybook-shell--night-home' : ''}`}>
       {showPromo && weather && location && (
-        <PromoCard 
-            onClose={() => setShowPromo(false)} 
-            weatherCode={weather.current_weather.weathercode}
-            temperature={weather.current_weather.temperature}
-            isDay={weather.current_weather.is_day === 1}
-            locationName={location.customName || location.name}
-            language={language}
+        <PromoCard
+          onClose={() => setShowPromo(false)}
+          weatherCode={weather.current_weather.weathercode}
+          temperature={weather.current_weather.temperature}
+          isDay={weather.current_weather.is_day === 1}
+          locationName={location.customName || location.name}
+          language={language}
         />
       )}
 
-      {/* Activity Recommendations Modal */}
-      {showActivityModal && weather && location && (
-          <ActivityModal 
-            onClose={() => setShowActivityModal(false)}
-            lat={location.latitude}
-            lon={location.longitude}
-            weatherCode={weather.current_weather.weathercode}
-            temp={weather.current_weather.temperature}
-            lang={language}
-            activityContext={activitySuggestion} // Pass the activity from the widget
-          />
-      )}
-
-      {/* Full Screen Atmospheric Background */}
-      {weather && (
-        <AtmosphericBackground 
-            weatherCode={weather.current_weather.weathercode}
-            isDay={weather.current_weather.is_day === 1}
+      {showActivityModal && location && (
+        <ActivityModal
+          onClose={() => {
+            setShowActivityModal(false);
+            setSelectedPlan(null);
+          }}
+          lat={location.latitude}
+          lon={location.longitude}
+          weatherCode={weather?.current_weather.weathercode ?? 2}
+          temp={weather?.current_weather.temperature ?? 18}
+          lang={language}
+          activityContext={selectedPlan?.title ?? activitySuggestion}
+          selectedPlan={selectedPlan ?? undefined}
         />
       )}
 
-      {/* Language Toggle */}
-      <button 
-        onClick={toggleLanguage}
-        className="absolute top-4 right-4 z-50 bg-white/60 hover:bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-gray-500 border border-white transition-all shadow-sm"
-      >
-        {language === 'es' ? 'ES' : 'EN'}
-      </button>
-
-      {/* Search Header - Reduced mb from 6 to 2 */}
-      <div className="w-full max-w-md relative z-50 mb-2 mt-6 flex flex-col items-center">
-        <div className="w-full flex items-center bg-white/70 backdrop-blur-md rounded-full shadow-lg p-2 border border-white transition-all focus-within:ring-2 focus-within:ring-pink-200">
-            <div className="pl-4 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
+      {showAbout && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="modal-backdrop-enter absolute inset-0 bg-[#4d382f]/35 backdrop-blur-sm" onClick={() => setShowAbout(false)}></div>
+          <div className="cozy-modal-card modal-card-enter storybook-paper relative w-full max-w-sm rounded-[2rem] p-6">
+            <h2 className="mb-4 text-2xl font-black text-[#4d382f]">{t.aboutTitle}</h2>
+            <div className="space-y-3 text-sm font-semibold leading-relaxed text-[#7c6a62]">
+              {t.aboutBody.map((item) => <p key={item}>{item}</p>)}
             </div>
-            <input 
-                type="text"
-                placeholder={t.searchPlaceholder}
-                className="w-full bg-transparent border-none outline-none px-3 py-2 text-gray-700 placeholder-gray-400 font-medium"
-                value={searchQuery}
-                onChange={handleSearch}
-                onFocus={() => setShowSearch(true)}
-            />
+            <button
+              onClick={() => setShowAbout(false)}
+              className="mt-6 w-full rounded-2xl bg-[#d98c84] py-3 font-black text-white shadow-lg shadow-[#d98c84]/20 transition hover:bg-[#c97972]"
+            >
+              {t.close}
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* Favorites List "Tickets" */}
-        {favorites.length > 0 && !showSearch && (
-            <div className="w-full mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-1">
-                {favorites.map((fav, idx) => (
-                    <FavoriteTicket 
-                        key={`${fav.latitude}-${fav.longitude}`}
-                        name={fav.customName || fav.name}
-                        onClick={() => selectCity(fav)}
-                        onRemove={(e) => removeFavorite(e, fav.latitude, fav.longitude)}
-                        colorIndex={idx}
-                    />
-                ))}
+      {showClearFavoritesConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="modal-backdrop-enter absolute inset-0 bg-[#4d382f]/35 backdrop-blur-sm" onClick={() => setShowClearFavoritesConfirm(false)}></div>
+          <div className="cozy-modal-card modal-card-enter storybook-paper relative w-full max-w-sm rounded-[2rem] p-6">
+            <h2 className="text-2xl font-black text-[#4d382f]">{t.clearFavorites}</h2>
+            <p className="mt-3 text-sm font-bold leading-relaxed text-[#7c6a62]">{t.confirmClearFavorites}</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearFavoritesConfirm(false)}
+                className="rounded-2xl bg-white/75 py-3 font-black text-[#7c6a62] shadow-sm transition hover:bg-white"
+              >
+                {t.close}
+              </button>
+              <button
+                type="button"
+                onClick={clearFavorites}
+                className="rounded-2xl bg-[#d98c84] py-3 font-black text-white shadow-lg shadow-[#d98c84]/20 transition hover:bg-[#c97972]"
+              >
+                {t.clearFavorites}
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      <main ref={scrollRegionRef} className={`app-scroll-region relative z-10 mx-auto box-border flex w-full max-w-md flex-col ${activeTab === 'home' ? 'home-scroll-region px-0 pt-0' : 'tab-scroll-region px-4 pt-5'}`}>
+        {activeTab !== 'home' && (
+        <header className="app-topbar mb-6 grid grid-cols-[3.5rem_1fr_3.5rem] items-center">
+          <div aria-hidden="true"></div>
+          <div className="relative text-center">
+            <p className="home-v3-brand-title">Cozy Weather</p>
+            <div className="home-v3-brand-rule"></div>
+          </div>
+          <div aria-hidden="true"></div>
+        </header>
         )}
 
-        {/* Search Results Dropdown */}
-        {showSearch && searchResults.length > 0 && (
-            <div className="absolute top-14 left-0 w-full bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden border border-white/50 max-h-60 overflow-y-auto z-50">
-                {searchResults.map((city, idx) => (
-                    <button 
-                        key={`${city.latitude}-${idx}`}
-                        className="w-full text-left px-5 py-3 hover:bg-pink-50 transition-colors text-gray-700 font-medium border-b border-gray-100 last:border-0"
-                        onClick={() => selectCity(city)}
-                    >
-                        {city.name} {city.admin1 ? `, ${city.admin1}` : ''} <span className="text-gray-400 text-sm ml-1">{city.country}</span>
-                    </button>
-                ))}
-            </div>
-        )}
-      </div>
-
-      {/* Main Content */}
-      <div className="w-full max-w-md relative z-10">
+        {activeTab === 'home' ? (
+          <>
         {loading ? (
-            <div className="flex flex-col items-center justify-center h-64">
-                <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-400 rounded-full animate-spin mb-4"></div>
-                <p className="text-pink-400 font-medium animate-pulse">{t.loading}</p>
-            </div>
+          <section className="storybook-paper mx-4 mt-5 flex flex-1 flex-col items-center justify-center rounded-[2rem] p-8 text-center">
+            <div className="mb-5 h-16 w-16 animate-spin rounded-full border-4 border-[#f3d4ca] border-t-[#d98c84]"></div>
+            <p className="font-black text-[#d98c84]">{t.loading}</p>
+            <p className="mt-3 max-w-xs text-sm font-semibold text-[#7c6a62]">{t.manualHint}</p>
+          </section>
         ) : error ? (
-            <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center text-red-400">
-                <p>{error}</p>
-                <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-100 rounded-full text-sm font-bold hover:bg-red-200 transition">{t.retry}</button>
-            </div>
+          <section className="storybook-paper mx-4 mt-5 rounded-[2rem] p-8 text-center text-[#b65555]">
+            <p className="font-bold">{error}</p>
+            <button onClick={() => window.location.reload()} className="mt-5 rounded-2xl bg-[#f3d4ca] px-5 py-3 text-sm font-black text-[#8e5650]">
+              {t.retry}
+            </button>
+          </section>
         ) : weather && location ? (
-            <>
-                {/* Main Weather Card */}
-                <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] p-8 shadow-xl border border-white relative overflow-hidden text-center mb-6 mt-2 group">
-                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-300"></div>
-                    
-                    {/* Header with Favorite Toggle AND Mascot Toggle */}
-                    <div className="relative flex justify-center items-center mb-1">
-                        {/* Mascot Toggle Button (Top Left) */}
-                        <button
-                            onClick={toggleMascot}
-                            className={`absolute left-0 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all border-2 ${showMascot ? 'bg-pink-100 border-pink-300' : 'bg-transparent border-transparent hover:bg-white/50'}`}
-                            title={t.mascotMode}
-                        >
-                            <span className="text-xl filter drop-shadow-sm">
-                                {showMascot ? '🐱' : '☁️'}
-                            </span>
-                        </button>
-
-                        <h2 className="text-3xl font-bold text-gray-700 mx-10 leading-tight">{location.customName || location.name}</h2>
-                        
-                        {/* Heart Button (Top Right) */}
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite();
-                            }}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-pink-400 hover:text-pink-500 hover:scale-110 transition-all active:scale-95 cursor-pointer z-20"
-                            title={isCurrentLocationFavorite() ? "Eliminar de favoritos" : "Guardar en favoritos"}
-                        >
-                            {isCurrentLocationFavorite() ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 drop-shadow-sm">
-                                    <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7 opacity-50 hover:opacity-100">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                                </svg>
-                            )}
-                        </button>
-                    </div>
-
-                    <p className="text-gray-500 text-sm font-medium mb-1 uppercase tracking-wider">
-                      {new Date().toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long'})}
-                    </p>
-                    
-                    {/* Visual Centerpiece */}
-                    <div className={`flex justify-center mt-2 cursor-pointer transition-all duration-300 ${showMascot ? 'mb-2' : '-mb-6'}`} onClick={toggleMascot}>
-                        {showMascot ? (
-                            <div className="transform transition-all duration-500 hover:scale-105">
-                                <CatAvatar 
-                                    weatherCode={weather.current_weather.weathercode}
-                                    temperature={weather.current_weather.temperature}
-                                    isDay={weather.current_weather.is_day === 1}
-                                    className="w-52 h-52"
-                                />
-                            </div>
-                        ) : (
-                            <WeatherIcon 
-                                code={weather.current_weather.weathercode} 
-                                isDay={weather.current_weather.is_day}
-                                size="lg" 
-                                className="w-52 h-52"
-                            />
-                        )}
-                    </div>
-                    
-                    <div className="flex flex-col items-center mb-4 pt-0">
-                        <div className="text-6xl font-bold text-gray-800 tracking-tighter relative z-20 leading-none">
-                            {Math.round(weather.current_weather.temperature)}°
-                        </div>
-                        {weather.current_weather.apparent_temperature !== undefined && (
-                            <span className="text-gray-500 font-medium mt-1">
-                                {t.feelsLike} <span className="text-gray-700">{Math.round(weather.current_weather.apparent_temperature)}°</span>
-                            </span>
-                        )}
-                    </div>
-
-                    {/* AI Message Bubble */}
-                    {aiMessage && (
-                        <div className="bg-white/80 rounded-2xl p-4 shadow-sm border border-pink-100 mb-6 inline-block transform -rotate-1 hover:rotate-0 transition-transform duration-300">
-                            <p className="text-gray-600 italic text-lg leading-relaxed">
-                                "{aiMessage}"
-                            </p>
-                        </div>
-                    )}
-                    
-                    {/* Grid of Widgets */}
-                    <div className="grid grid-cols-2 gap-3 mt-2 text-gray-500">
-                        {/* Wind Section */}
-                        <div className="flex flex-col items-center justify-center p-3 bg-white/40 rounded-2xl border border-white/50 backdrop-blur-sm">
-                            <WindIcon className="scale-75 mb-1" />
-                            <span className="text-xs font-bold uppercase tracking-widest text-pink-400 mb-1">{t.wind}</span>
-                            <span className="text-lg font-semibold text-gray-600">
-                                {weather.current_weather.windspeed} <span className="text-xs">km/h</span>
-                            </span>
-                        </div>
-
-                        {/* Outfit Recommendation Widget */}
-                        <OutfitWidget 
-                            temperature={weather.current_weather.apparent_temperature || weather.current_weather.temperature}
-                            weatherCode={weather.current_weather.weathercode}
-                            isDay={weather.current_weather.is_day === 1}
-                            lang={language}
-                            label={t.outfitTitle}
-                        />
-
-                        {/* Activity Suggestion Widget (Span 2 cols) - Now ALWAYS rendered with placeholder */}
-                        <ActivityWidget 
-                            activity={activitySuggestion || t.loadingPlan}
-                            onClick={() => {
-                                // Only open modal if we have a real activity
-                                if (activitySuggestion) setShowActivityModal(true);
-                            }}
-                            lang={language}
-                            isLoading={!activitySuggestion}
-                        />
-
-                        {/* Temp Min/Max Section (Span 2 cols) */}
-                        <div className="col-span-2 flex items-center justify-between px-6 py-3 bg-white/40 rounded-2xl border border-white/50 backdrop-blur-sm">
-                            <div className="flex items-center gap-3">
-                                <TempIcon className="scale-75" />
-                                <span className="text-xs font-bold uppercase tracking-widest text-blue-400">{t.minMax}</span>
-                            </div>
-                            <span className="text-xl font-semibold text-gray-600">
-                                {Math.round(weather.daily.temperature_2m_min[0])}° / {Math.round(weather.daily.temperature_2m_max[0])}°
-                            </span>
-                        </div>
-                    </div>
+          <>
+            <section key={sceneKey} className={`home-v3-hero-shell home-scene-backdrop--${homeSceneTone} scene-enter`}>
+              {currentHomeScene && (
+                <div className={`home-scene-backdrop home-scene-backdrop--${homeSceneTone}`} aria-hidden="true">
+                  <img src={currentHomeScene.src} alt="" className="home-scene-backdrop__art" />
+                  <div className="home-scene-backdrop__fade"></div>
                 </div>
+              )}
 
-                {/* Hourly Forecast */}
-                <HourlyForecast data={weather.hourly} label={t.hourly} />
+              <WeatherAtmosphere
+                key={`${sceneKey}-atmosphere`}
+                condition={condition}
+                isDay={weather.current_weather.is_day === 1}
+                windspeed={weather.current_weather.windspeed}
+                weatherCode={weather.current_weather.weathercode}
+              />
 
-                {/* Daily Forecast Scroll */}
-                <div className="mb-6">
-                    <h3 className="text-gray-600 font-bold ml-4 mb-3">{t.nextDays}</h3>
-                    <div className="flex gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide">
-                        {weather.daily.time.slice(1, 7).map((date, index) => (
-                            <DailyCard 
-                                key={date}
-                                date={date}
-                                locale={language === 'es' ? 'es-ES' : 'en-US'}
-                                maxTemp={weather.daily.temperature_2m_max[index + 1]}
-                                minTemp={weather.daily.temperature_2m_min[index + 1]}
-                                code={weather.daily.weathercode[index + 1]}
-                            />
-                        ))}
+              <header className="home-v3-header mb-5 grid items-center">
+                <div className="relative text-center">
+                  <p className="home-v3-brand-title">Cozy Weather</p>
+                  <div className="home-v3-brand-rule"></div>
+                </div>
+              </header>
+
+              {cacheNotice && (
+                <div className="home-cache-notice">
+                  {cacheNotice}
+                </div>
+              )}
+
+              <div className="home-v3-hero relative">
+              <div className="home-v3-weather-copy relative z-10">
+                <div className="home-v3-city-line">
+                  <h1>{location.customName || location.name}</h1>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 21s6-5.1 6-11a6 6 0 0 0-12 0c0 5.9 6 11 6 11Z" />
+                    <circle cx="12" cy="10" r="2.25" />
+                  </svg>
+                  <button
+                    type="button"
+                    onClick={toggleFavorite}
+                    className={`home-v3-inline-favorite ${isCurrentLocationFavorite() ? 'is-active' : ''}`}
+                    aria-label={isCurrentLocationFavorite() ? (language === 'es' ? 'Quitar de favoritos' : 'Remove from favorites') : t.save}
+                    title={isCurrentLocationFavorite() ? (language === 'es' ? 'Quitar de favoritos' : 'Remove from favorites') : t.save}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20.5 8.7c0 5.8-8.5 10.5-8.5 10.5S3.5 14.5 3.5 8.7A4.5 4.5 0 0 1 12 6.6a4.5 4.5 0 0 1 8.5 2.1Z" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="home-v3-date">{dateLabel}</p>
+                <div className="home-v3-reading">
+                  <span className="home-v3-temperature">
+                    {formatTemperature(weather.current_weather.temperature)}&deg;{temperatureUnit === 'f' ? 'F' : ''}
+                  </span>
+                  <div className="home-v3-condition-row">
+                    <img
+                      src={currentWeatherAsset.src}
+                      alt={currentWeatherAsset.alt[language]}
+                      className="cozy-weather-hero-asset h-11 w-11 shrink-0"
+                      loading="eager"
+                      decoding="async"
+                    />
+                    <p>{conditionLabel}</p>
+                  </div>
+                  <p className="home-v3-range">
+                    {formatTemperature(weather.daily.temperature_2m_min[0])}&deg;{temperatureUnit === 'f' ? 'F' : ''} / {formatTemperature(weather.daily.temperature_2m_max[0])}&deg;{temperatureUnit === 'f' ? 'F' : ''}
+                  </p>
+                </div>
+                {weather.current_weather.apparent_temperature !== undefined && (
+                  <div className="home-v3-feels-meta">
+                    <span className="home-v3-feels-icon">
+                      <TempIcon className="h-7 w-7 scale-75" />
+                    </span>
+                    {t.feelsLike} {formatTemperature(weather.current_weather.apparent_temperature)}&deg;{temperatureUnit === 'f' ? 'F' : ''}
+                  </div>
+                )}
+                <div className="home-v3-wind-meta">
+                  <img
+                    src={cozyWeatherAssets.wind.src}
+                    alt=""
+                    className="h-7 w-7"
+                    aria-hidden="true"
+                  />
+                  {formatWind(weather.current_weather.windspeed)} {windUnit === 'mph' ? 'mph' : 'km/h'}
+                </div>
+              </div>
+
+              </div>
+            </section>
+
+            <section className="home-v3-content-section">
+            {cozyMessage && (
+              <section className="home-v3-message-card storybook-paper mb-4">
+                <div className="home-v3-message-icon">
+                  <img src={cozyMessageAsset.src} alt={cozyMessageAsset.alt[language]} className="cozy-card-asset h-12 w-12" loading="lazy" decoding="async" />
+                </div>
+                <p>{cozyMessage}</p>
+                <img
+                  src={cozyDecorations.leavesAlt.src}
+                  alt=""
+                  className="home-v3-message-leaves"
+                  aria-hidden="true"
+                />
+              </section>
+            )}
+
+            <section className="home-v3-feature-grid mb-4">
+              <OutfitWidget
+                temperature={weather.current_weather.temperature}
+                apparentTemperature={weather.current_weather.apparent_temperature ?? weather.current_weather.temperature}
+                weatherCode={weather.current_weather.weathercode}
+                windspeed={weather.current_weather.windspeed}
+                isDay={weather.current_weather.is_day === 1}
+                lang={language}
+                label={t.outfitTitle}
+              />
+              <ActivityWidget
+                activity={activitySuggestion || t.loadingPlan}
+                asset={currentPlanAsset}
+                weatherCode={weather.current_weather.weathercode}
+                temperature={weather.current_weather.temperature}
+                isDay={weather.current_weather.is_day === 1}
+                onClick={() => {
+                  if (activitySuggestion) {
+                    setSelectedPlan(null);
+                    setShowActivityModal(true);
+                  }
+                }}
+                lang={language}
+                isLoading={!activitySuggestion}
+              />
+            </section>
+
+            <section className="home-v3-forecast-panel storybook-paper mb-5">
+              <HourlyForecast
+                data={weather.hourly}
+                label={t.hourly}
+                lang={language}
+                temperatureUnit={temperatureUnit}
+                formatTemperature={formatTemperature}
+              />
+            </section>
+
+            <section className="home-v3-forecast-panel storybook-paper mb-5">
+              <h2 className="home-v3-section-title">{t.nextDays}</h2>
+              <div className="home-v3-daily-list">
+                {weather.daily.time.slice(1, 6).map((date, index) => {
+                  const max = weather.daily.temperature_2m_max[index + 1];
+                  const min = weather.daily.temperature_2m_min[index + 1];
+                  const code = weather.daily.weathercode[index + 1];
+                  const dayLabel = new Date(date).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
+                    weekday: 'short',
+                    day: 'numeric'
+                  });
+                  const weatherAsset = getWeatherAsset(code, max, 0, true);
+
+                  return (
+                    <div key={date} className="home-v3-daily-row">
+                      <span className="home-v3-daily-day">{dayLabel}</span>
+                      <img src={weatherAsset.src} alt={weatherAsset.alt[language]} className="cozy-forecast-asset h-9 w-9" loading="lazy" decoding="async" />
+                      <span className="home-v3-daily-copy">{getForecastConditionLabel(code, language)}</span>
+                      <span className="home-v3-daily-range">
+                        {formatTemperature(min)}&deg; / {formatTemperature(max)}&deg;{temperatureUnit === 'f' ? 'F' : ''}
+                      </span>
                     </div>
-                </div>
+                  );
+                })}
+              </div>
+            </section>
 
-                {/* NEW MAIN SHARE BUTTON */}
-                <div className="mb-8 px-2">
-                    <button 
-                        onClick={() => setShowPromo(true)}
-                        className="w-full bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3 active:scale-95 group"
-                    >
-                        <span className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-                            </svg>
-                        </span>
-                        <span className="text-lg tracking-wide">{t.shareBtn}</span>
-                    </button>
-                </div>
-            </>
+            <button
+              onClick={() => setShowPromo(true)}
+              className="home-v3-share mb-5"
+            >
+              {t.shareBtn}
+            </button>
+            </section>
+          </>
         ) : null}
-      </div>
 
-      <footer className="mt-auto py-4 text-center text-gray-400 text-sm relative z-10 flex gap-2 items-center justify-center">
-        <p>{t.footer}</p>
-      </footer>
+          </>
+        ) : (
+          <section className="tab-screen-card storybook-paper mb-5 box-border w-full max-w-full overflow-hidden rounded-[2rem] p-5">
+            <div className="tab-screen-heading mb-5 flex items-center gap-3">
+              <div className="tab-screen-icon flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7d6cc]">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#b86f68]">
+                  <TabIcon tab={activeTab} active />
+                </svg>
+              </div>
+              <div>
+                <h1 className="tab-screen-title text-2xl font-black text-[#4d382f]">{placeholderCopy[language][activeTab].title}</h1>
+                <p className="tab-screen-subtitle text-sm font-bold text-[#7c6a62]">{placeholderCopy[language][activeTab].body}</p>
+              </div>
+            </div>
+
+            {activeTab === 'search' && (
+              <div className="tab-content-stack space-y-5">
+                <div className="search-input-card storybook-panel flex items-center gap-3 rounded-[1.7rem] px-4 py-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="h-5 w-5 shrink-0 text-[#7fa8b9]">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder={t.searchPlaceholder}
+                    className="min-w-0 flex-1 bg-transparent text-lg font-black text-[#4d382f] outline-none placeholder:text-[#9c8c80]"
+                    value={searchQuery}
+                    onChange={handleSearch}
+                    onFocus={() => setShowSearch(true)}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={useCurrentLocation}
+                  disabled={locationLoading}
+                  className="location-action-card storybook-panel flex w-full items-center gap-4 rounded-[1.7rem] p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+                >
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#dceef4] text-[#5f93a8]">
+                    {locationLoading ? (
+                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#9fc5d2] border-t-[#5f93a8]"></span>
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+                        <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" />
+                      </svg>
+                    )}
+                  </span>
+                  <span>
+                    <span className="block text-base font-black text-[#4d382f]">{t.useCurrentLocation}</span>
+                    <span className="block text-sm font-bold text-[#7c6a62]">{t.useCurrentLocationHint}</span>
+                  </span>
+                </button>
+
+                {locationErrorMessage && (
+                  <div className="rounded-2xl bg-[#fff2ef] px-4 py-3 text-sm font-bold text-[#b65555]">
+                    {locationErrorMessage}
+                  </div>
+                )}
+
+                {searchLoading && (
+                  <div className="soft-status-card storybook-panel rounded-2xl px-4 py-3 text-center text-sm font-black text-[#7fa8b9]">
+                    {t.searchingCities}
+                  </div>
+                )}
+
+                {searchErrorMessage && (
+                  <div className="rounded-2xl bg-[#fff2ef] px-4 py-3 text-sm font-bold text-[#b65555]">
+                    {searchErrorMessage}
+                  </div>
+                )}
+
+                {showSearch && searchQuery.trim().length >= 2 && !searchLoading && !searchErrorMessage && searchResults.length === 0 && (
+                  <div className="empty-state-card storybook-panel rounded-2xl px-4 py-4 text-sm font-bold text-[#7c6a62]">
+                    {t.noSearchResults}
+                  </div>
+                )}
+
+                {showSearch && searchResults.length > 0 && (
+                  <section>
+                    <h2 className="section-kicker mb-3 px-1 text-lg font-black text-[#4d382f]">{t.searchResultsTitle}</h2>
+                    <div className="space-y-3">
+                      {searchResults.map((city) => (
+                        <CityCard key={cityKey(city)} city={city} onSelect={selectCity} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {recentSearches.length > 0 && (
+                  <section>
+                    <h2 className="section-kicker mb-3 px-1 text-lg font-black text-[#4d382f]">{t.recentSearches}</h2>
+                    <div className="space-y-2">
+                      {recentSearches.map((city) => (
+                        <CityCard key={cityKey(city)} city={city} onSelect={selectCity} compact />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'favorites' && (
+              <div className="tab-content-stack grid w-full min-w-0 max-w-full gap-5 overflow-hidden">
+                {favorites.length > 0 ? (() => {
+                  const orderedFavorites = [...favorites].sort((a, b) => Number(isSameLocation(b)) - Number(isSameLocation(a)));
+                  const featuredFavorite = orderedFavorites[0];
+                  const secondaryFavorites = orderedFavorites.slice(1);
+
+                  const renderFavorite = (fav: GeoLocation, featured = false) => {
+                    const favWeather = favoriteWeather[geoKey(fav)];
+                    const favCondition = favWeather
+                      ? getConditionKey(favWeather.current_weather.weathercode, favWeather.current_weather.is_day === 1)
+                      : null;
+                    const favAsset = favWeather
+                      ? getWeatherAsset(
+                          favWeather.current_weather.weathercode,
+                          favWeather.current_weather.temperature,
+                          favWeather.current_weather.windspeed,
+                          favWeather.current_weather.is_day === 1
+                        )
+                      : undefined;
+
+                    return (
+                      <FavoriteTicket
+                        key={geoKey(fav)}
+                        city={fav}
+                        meta={[fav.admin1, fav.country].filter(Boolean).join(', ')}
+                        weather={favWeather && favCondition && favAsset ? {
+                          temperature: favWeather.current_weather.temperature,
+                          condition: t.condition[favCondition],
+                          asset: favAsset
+                        } : undefined}
+                        lang={language}
+                        isCurrent={isSameLocation(fav)}
+                        temperatureUnit={temperatureUnit}
+                        formatTemperature={formatTemperature}
+                        label={featured ? (language === 'es' ? 'Principal' : 'Main') : undefined}
+                        featured={featured}
+                        onClick={() => selectCity(fav)}
+                        onRemove={(event) => removeFavorite(event, fav.latitude, fav.longitude)}
+                      />
+                    );
+                  };
+
+                  return (
+                    <>
+                      {renderFavorite(featuredFavorite, true)}
+
+                      {secondaryFavorites.length > 0 && (
+                        <section>
+                          <h2 className="section-kicker mb-3 px-1 text-lg font-black text-[#4d382f]">
+                            {language === 'es' ? 'También guardadas' : 'Also saved'}
+                          </h2>
+                          <div className="grid gap-3">
+                            {secondaryFavorites.map((fav) => renderFavorite(fav))}
+                          </div>
+                        </section>
+                      )}
+                    </>
+                  );
+                })() : (
+                  <div className="empty-state-card storybook-panel flex w-full flex-col items-center rounded-[1.7rem] p-6 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#f7d6cc] text-[#d98c84]">
+                      <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20.5 8.7c0 5.8-8.5 10.5-8.5 10.5S3.5 14.5 3.5 8.7A4.5 4.5 0 0 1 12 6.6a4.5 4.5 0 0 1 8.5 2.1Z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-black text-[#4d382f]">{t.favoritesEmptyTitle}</h2>
+                    <p className="mt-2 text-sm font-bold leading-relaxed text-[#7c6a62]">
+                      {t.favoritesEmptyBody}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'plans' && (
+              <div className="tab-content-stack grid gap-5">
+                <PlanCard
+                  plan={planBundle.primary}
+                  lang={language}
+                  label={t.plan}
+                  featured
+                  onSelect={openPlanModal}
+                />
+
+                {planBundle.alternatives.length > 0 && (
+                  <section>
+                    <h2 className="section-kicker mb-3 px-1 text-lg font-black text-[#4d382f]">
+                      {language === 'es' ? 'También puede encajar' : 'This could also fit'}
+                    </h2>
+                    <div className="grid gap-3">
+                      {planBundle.alternatives.map((plan) => (
+                        <PlanCard
+                          key={plan.id}
+                          plan={plan}
+                          lang={language}
+                          onSelect={openPlanModal}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div className="settings-stack tab-content-stack grid gap-5">
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.language}</h2>
+                  <div className="settings-panel storybook-panel rounded-[1.7rem] p-4">
+                    <SegmentedControl
+                      value={language}
+                      options={[
+                        { value: 'es', label: 'Español' },
+                        { value: 'en', label: 'English' }
+                      ]}
+                      onChange={(value) => {
+                        if (value !== language) toggleLanguage();
+                      }}
+                    />
+                  </div>
+                </section>
+
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.units}</h2>
+                  <div className="settings-panel storybook-panel grid gap-4 rounded-[1.7rem] p-4">
+                    <div className="grid gap-2">
+                      <span className="text-sm font-black text-[#4d382f]">{t.temperature}</span>
+                      <SegmentedControl
+                        value={temperatureUnit}
+                        options={[
+                          { value: 'c', label: 'Celsius (°C)' },
+                          { value: 'f', label: 'Fahrenheit (°F)' }
+                        ]}
+                        onChange={setTemperatureUnit}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <span className="text-sm font-black text-[#4d382f]">{t.wind}</span>
+                      <SegmentedControl
+                        value={windUnit}
+                        options={[
+                          { value: 'kmh', label: 'km/h' },
+                          { value: 'mph', label: 'mph' }
+                        ]}
+                        onChange={setWindUnit}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.location}</h2>
+                  <div className="grid gap-3">
+                    <SettingsRow
+                      title={t.useCurrentLocation}
+                      description={t.useCurrentLocationHint}
+                      value={locationLoading ? '...' : undefined}
+                      onClick={useCurrentLocation}
+                    />
+                    {locationErrorMessage && (
+                      <div className="rounded-2xl bg-[#fff2ef] px-4 py-3 text-sm font-bold text-[#b65555]">
+                        {locationErrorMessage}
+                      </div>
+                    )}
+                    <SettingsRow
+                      title={t.currentCity}
+                      description={location ? (location.customName || location.name) : t.defaultLocation}
+                    />
+                  </div>
+                </section>
+
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.localData}</h2>
+                  <div className="grid gap-3">
+                    <SettingsRow
+                      title={t.clearRecentSearches}
+                      description={t.clearRecentSearchesHint}
+                      onClick={clearRecentSearches}
+                    />
+                    <SettingsRow
+                      title={t.clearFavorites}
+                      description={t.clearFavoritesHint}
+                      onClick={() => setShowClearFavoritesConfirm(true)}
+                      tone="danger"
+                    />
+                  </div>
+                </section>
+
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.about}</h2>
+                  <SettingsRow
+                    title={t.about}
+                    description={language === 'es' ? 'Cómo usa la app tus datos.' : 'How the app uses your data.'}
+                    value="›"
+                    onClick={() => setShowAbout(true)}
+                  />
+                </section>
+
+                <section className="settings-section grid gap-3">
+                  <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.credits}</h2>
+                  <div className="settings-panel storybook-panel grid gap-3 rounded-[1.7rem] p-4 text-sm font-bold text-[#7c6a62]">
+                    <p>{t.footer}</p>
+                    <p>{t.visualAssets}</p>
+                    <p>{t.version}</p>
+                  </div>
+                </section>
+              </div>
+            )}
+          </section>
+        )}
+
+        <div
+          className={`bottom-nav-spacer ${activeTab === 'home' ? 'bottom-nav-spacer--home' : ''}`}
+          aria-hidden="true"
+        ></div>
+      </main>
+
+      <div className="bottom-nav-zone">
+        <nav className="bottom-nav storybook-paper grid w-full max-w-md grid-cols-5 gap-1 rounded-[1.6rem] px-2 py-2">
+          {(['home', 'search', 'favorites', 'plans', 'settings'] as AppTab[]).map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11px] font-black transition ${active ? 'bg-[#f7d6cc]/70 text-[#d98c84]' : 'text-[#6f574b]'}`}
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6">
+                  <TabIcon tab={tab} active={active} />
+                </svg>
+                <span className="truncate">{tabLabels[language][tab]}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 };

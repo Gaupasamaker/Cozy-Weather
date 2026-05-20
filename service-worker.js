@@ -1,8 +1,9 @@
-const CACHE_NAME = 'cozy-weather-v2';
+const CACHE_NAME = 'cozy-weather-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg'
 ];
 
 // Install event: Cache core assets
