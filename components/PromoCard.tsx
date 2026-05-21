@@ -15,11 +15,19 @@ const translations = {
     appTitle: 'Cozy Weather',
     subtitle: 'El tiempo cozy en',
     footer: 'Un momento sencillo para mirar el cielo con calma.',
-    capture: 'Haz una captura o comparte el enlace',
+    capture: 'Comparte una tarjeta cozy o el enlace',
+    shareImage: 'Compartir imagen',
     shareLink: 'Compartir enlace',
+    shareX: 'X / Twitter',
+    shareWhatsApp: 'WhatsApp',
+    preparing: 'Preparando imagen...',
     close: 'Cerrar',
     copied: 'Enlace copiado',
+    imageReady: 'Imagen lista',
+    imageError: 'No pudimos preparar la imagen',
+    socialNote: 'Para redes con imagen, usa Compartir imagen.',
     shareText: 'Mira el tiempo cozy de hoy en Cozy Weather:',
+    copyPrompt: 'Copia este enlace:',
     condition: {
       clear: 'Soleado',
       cloudy: 'Nublado',
@@ -34,11 +42,19 @@ const translations = {
     appTitle: 'Cozy Weather',
     subtitle: 'Cozy weather in',
     footer: 'A simple moment to check the sky with calm.',
-    capture: 'Take a screenshot or share the link',
+    capture: 'Share a cozy card or the link',
+    shareImage: 'Share image',
     shareLink: 'Share link',
+    shareX: 'X / Twitter',
+    shareWhatsApp: 'WhatsApp',
+    preparing: 'Preparing image...',
     close: 'Close',
     copied: 'Link copied',
-    shareText: 'See today’s cozy weather on Cozy Weather:',
+    imageReady: 'Image ready',
+    imageError: 'Could not prepare the image',
+    socialNote: 'For image-friendly apps, use Share image.',
+    shareText: "See today's cozy weather on Cozy Weather:",
+    copyPrompt: 'Copy this link:',
     condition: {
       clear: 'Sunny',
       cloudy: 'Cloudy',
@@ -63,6 +79,82 @@ const getConditionKey = (weatherCode: number, isDay: boolean): ConditionKey => {
   return 'cloudy';
 };
 
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+
+const drawRoundedRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) => {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+};
+
+const drawImageCover = (
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) => {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
+  const sourceX = (image.naturalWidth - sourceWidth) / 2;
+  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+};
+
+const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+
+      reject(new Error('Canvas export failed'));
+    }, 'image/png', 0.95);
+  });
+
+const fitText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  initialSize: number,
+  weight = 900
+) => {
+  let size = initialSize;
+
+  while (size > 34) {
+    ctx.font = `${weight} ${size}px Nunito, Quicksand, Arial, sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 3;
+  }
+
+  return size;
+};
+
 const PromoCard: React.FC<PromoCardProps> = ({
   onClose,
   weatherCode,
@@ -73,20 +165,128 @@ const PromoCard: React.FC<PromoCardProps> = ({
 }) => {
   const t = translations[language];
   const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
   const conditionKey = getConditionKey(weatherCode, isDay);
   const scene = getHomeSceneAsset(weatherCode, temperature, 0, isDay);
   const weatherAsset = getWeatherAsset(weatherCode, temperature, 0, isDay);
+  const shareUrl = window.location.href;
+  const socialText = `${t.shareText} ${locationName} - ${Math.round(temperature)}° ${t.condition[conditionKey]}.`;
 
-  const handleShare = async () => {
-    const url = window.location.href;
-    const text = `${t.shareText} ${url}`;
+  const flashStatus = (message: string) => {
+    setStatus(message);
+    setTimeout(() => setStatus(null), 2400);
+  };
+
+  const createSocialImageFile = async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 675;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) throw new Error('Canvas is not available');
+
+    const [sceneImage, weatherImage, leavesImage] = await Promise.all([
+      loadImage(scene.src),
+      loadImage(weatherAsset.src),
+      loadImage(cozyDecorations.leavesAlt.src)
+    ]);
+
+    ctx.fillStyle = '#f3e3d6';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawImageCover(ctx, sceneImage, 0, 0, canvas.width, canvas.height);
+
+    const softWash = ctx.createLinearGradient(0, 0, 760, 0);
+    softWash.addColorStop(0, 'rgba(255, 250, 240, 0.82)');
+    softWash.addColorStop(0.55, 'rgba(255, 250, 240, 0.48)');
+    softWash.addColorStop(1, 'rgba(255, 250, 240, 0)');
+    ctx.fillStyle = softWash;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const bottomFade = ctx.createLinearGradient(0, 375, 0, 675);
+    bottomFade.addColorStop(0, 'rgba(243, 227, 214, 0)');
+    bottomFade.addColorStop(1, 'rgba(243, 227, 214, 0.92)');
+    ctx.fillStyle = bottomFade;
+    ctx.fillRect(0, 375, canvas.width, 300);
+
+    ctx.fillStyle = '#4d382f';
+    ctx.font = '900 58px Nunito, Quicksand, Arial, sans-serif';
+    ctx.fillText(t.appTitle, 72, 86);
+    ctx.fillStyle = 'rgba(217, 140, 132, 0.55)';
+    drawRoundedRect(ctx, 72, 108, 260, 5, 999);
+    ctx.fill();
+
+    ctx.fillStyle = '#7c6a62';
+    ctx.font = '900 36px Nunito, Quicksand, Arial, sans-serif';
+    ctx.fillText(t.subtitle, 72, 185);
+
+    ctx.fillStyle = '#4d382f';
+    fitText(ctx, locationName, 620, 76, 900);
+    ctx.fillText(locationName, 72, 265);
+
+    ctx.font = '900 160px Nunito, Quicksand, Arial, sans-serif';
+    ctx.fillText(`${Math.round(temperature)}°`, 72, 432);
+    ctx.drawImage(weatherImage, 80, 454, 88, 88);
+
+    ctx.fillStyle = '#416475';
+    fitText(ctx, t.condition[conditionKey], 420, 58, 900);
+    ctx.fillText(t.condition[conditionKey], 184, 520);
+
+    drawRoundedRect(ctx, 72, 560, 700, 78, 36);
+    ctx.fillStyle = 'rgba(255, 250, 240, 0.84)';
+    ctx.fill();
+    ctx.drawImage(leavesImage, 88, 568, 62, 62);
+    ctx.fillStyle = '#5f4b42';
+    ctx.font = '900 30px Nunito, Quicksand, Arial, sans-serif';
+    ctx.fillText(t.footer, 170, 610);
+
+    const blob = await canvasToBlob(canvas);
+    return new File([blob], 'cozy-weather-social-card.png', { type: 'image/png' });
+  };
+
+  const handleShareImage = async () => {
+    setIsPreparingImage(true);
+
+    try {
+      const file = await createSocialImageFile();
+      const canShareFiles = navigator.canShare?.({ files: [file] }) ?? false;
+
+      if (navigator.share && canShareFiles) {
+        await navigator.share({
+          title: t.appTitle,
+          text: socialText,
+          files: [file]
+        });
+        flashStatus(t.imageReady);
+        return;
+      }
+
+      const imageUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(imageUrl);
+      flashStatus(t.imageReady);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      flashStatus(t.imageError);
+    } finally {
+      setIsPreparingImage(false);
+    }
+  };
+
+  const handleShareLink = async () => {
+    const text = `${t.shareText} ${shareUrl}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Cozy Weather',
+          title: t.appTitle,
           text: t.shareText,
-          url
+          url: shareUrl
         });
         return;
       } catch {
@@ -124,11 +324,20 @@ const PromoCard: React.FC<PromoCardProps> = ({
 
     if (success) {
       setCopied(true);
+      flashStatus(t.copied);
       setTimeout(() => setCopied(false), 2200);
       return;
     }
 
-    prompt(language === 'es' ? 'Copia este enlace:' : 'Copy this link:', url);
+    prompt(t.copyPrompt, shareUrl);
+  };
+
+  const openSocialShare = (target: 'x' | 'whatsapp') => {
+    const url = target === 'x'
+      ? `https://twitter.com/intent/tweet?text=${encodeURIComponent(socialText)}&url=${encodeURIComponent(shareUrl)}`
+      : `https://wa.me/?text=${encodeURIComponent(`${socialText} ${shareUrl}`)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -141,8 +350,8 @@ const PromoCard: React.FC<PromoCardProps> = ({
         ×
       </button>
 
-      <div className="absolute left-1/2 top-[43%] z-10 flex w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center pointer-events-none">
-        <div className="origin-center scale-[0.36] min-[375px]:scale-[0.39] min-[425px]:scale-[0.43] sm:scale-[0.52] md:scale-[0.62] pointer-events-auto">
+      <div className="absolute left-1/2 top-[40%] z-10 flex w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center pointer-events-none">
+        <div className="origin-center scale-[0.32] min-[375px]:scale-[0.35] min-[425px]:scale-[0.39] sm:scale-[0.48] md:scale-[0.58] pointer-events-auto">
           <div
             id="social-card"
             className="relative h-[1400px] w-[900px] overflow-hidden rounded-[4.5rem] border-[10px] border-[#fffaf0] bg-[#f3e3d6] shadow-2xl"
@@ -188,20 +397,44 @@ const PromoCard: React.FC<PromoCardProps> = ({
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 z-[120] flex flex-col items-center gap-4 bg-gradient-to-t from-[#4b372f] via-[#4b372f]/92 to-transparent px-4 pb-7 pt-24">
+      <div className="absolute inset-x-0 bottom-0 z-[120] flex flex-col items-center gap-3 bg-gradient-to-t from-[#4b372f] via-[#4b372f]/92 to-transparent px-4 pb-6 pt-24">
         <p className="text-center text-sm font-black uppercase tracking-[0.18em] text-[#fff2df]/86">
           {t.capture}
         </p>
-        <button
-          onClick={handleShare}
-          className={`rounded-full px-8 py-4 text-lg font-black shadow-2xl transition active:scale-95 ${
-            copied
-              ? 'bg-[#9fbf94] text-white'
-              : 'bg-[#e09a91] text-[#fffaf0] hover:bg-[#d98c84]'
-          }`}
-        >
-          {copied ? t.copied : t.shareLink}
-        </button>
+        <div className="grid w-full max-w-[22rem] grid-cols-2 gap-2">
+          <button
+            onClick={handleShareImage}
+            disabled={isPreparingImage}
+            className="col-span-2 rounded-full bg-[#e09a91] px-6 py-3.5 text-base font-black text-[#fffaf0] shadow-2xl transition hover:bg-[#d98c84] active:scale-95 disabled:cursor-wait disabled:opacity-75"
+          >
+            {isPreparingImage ? t.preparing : t.shareImage}
+          </button>
+          <button
+            onClick={() => openSocialShare('x')}
+            className="rounded-full border border-white/24 bg-[#fffaf0]/14 px-4 py-3 text-sm font-black text-[#fffaf0] shadow-xl transition active:scale-95"
+          >
+            {t.shareX}
+          </button>
+          <button
+            onClick={() => openSocialShare('whatsapp')}
+            className="rounded-full border border-white/24 bg-[#fffaf0]/14 px-4 py-3 text-sm font-black text-[#fffaf0] shadow-xl transition active:scale-95"
+          >
+            {t.shareWhatsApp}
+          </button>
+          <button
+            onClick={handleShareLink}
+            className={`col-span-2 rounded-full px-6 py-3 text-sm font-black shadow-xl transition active:scale-95 ${
+              copied
+                ? 'bg-[#9fbf94] text-white'
+                : 'bg-[#fffaf0] text-[#6f5146]'
+            }`}
+          >
+            {status ?? (copied ? t.copied : t.shareLink)}
+          </button>
+        </div>
+        <p className="max-w-[21rem] text-center text-xs font-bold leading-snug text-[#fff2df]/68">
+          {t.socialNote}
+        </p>
       </div>
     </div>
   );

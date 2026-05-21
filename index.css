@@ -805,7 +805,7 @@ body {
 }
 
 .home-v3-editorial-card {
-  min-height: 5.85rem;
+  min-height: 6.05rem;
 }
 
 .home-v3-editorial-card--outfit {
@@ -824,6 +824,18 @@ body {
   justify-content: center;
   border-radius: 0;
   background: transparent;
+}
+
+.home-v3-card-kicker {
+  display: block;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
 }
 
 .home-v3-plan-title {
@@ -927,10 +939,9 @@ body {
 
 .home-v3-daily-row {
   display: grid;
-  grid-template-columns: 4.35rem minmax(0, 8.25rem) 4.75rem;
+  grid-template-columns: 5.25rem minmax(0, 1fr) 5.25rem;
   align-items: center;
-  column-gap: 0.35rem;
-  justify-content: space-between;
+  column-gap: 0.25rem;
   min-height: 2.35rem;
   border-top: 1px solid rgba(124, 106, 98, 0.14);
 }
@@ -948,6 +959,7 @@ body {
 }
 
 .home-v3-daily-day {
+  justify-self: center;
   text-transform: capitalize;
 }
 
@@ -955,6 +967,7 @@ body {
   display: flex;
   min-width: 0;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
 }
 
@@ -967,7 +980,7 @@ body {
 
 .home-v3-daily-range {
   color: var(--storybook-ink);
-  justify-self: end;
+  justify-self: center;
   white-space: nowrap;
 }
 

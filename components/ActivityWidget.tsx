@@ -32,34 +32,31 @@ const ActivityWidget: React.FC<ActivityWidgetProps> = ({
     >
       <div className="storybook-panel absolute inset-0 rounded-[1.65rem] transition-all duration-300 group-hover:bg-[#fffaf0]"></div>
 
-      <div className="relative flex h-full items-center gap-2 p-3 pr-6">
-        <div className={`home-v3-card-orb shrink-0 ${isLoading ? 'animate-bounce' : ''}`}>
-          <img
-            src={planAsset.src}
-            alt={planAsset.alt[lang]}
-            className="cozy-card-asset h-11 w-11"
-            loading="lazy"
-            decoding="async"
-          />
-        </div>
+      <div className="relative flex h-full flex-col justify-center gap-2 p-3 pr-6">
+        <span className="home-v3-card-kicker text-[#d49a3a]">
+          {title}
+        </span>
 
-        <div className="flex flex-col items-start min-w-0 flex-1">
-          <span className="mb-1 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-[#d49a3a]">
-            {title}
-          </span>
-          <div className="flex w-full items-center gap-2">
-            {isLoading ? (
-              <span className="text-sm font-black leading-tight text-[#9c8c80] animate-pulse">
-                {activity}
-              </span>
-            ) : (
-              <>
-                <span className="home-v3-plan-title line-clamp-2 text-[0.9rem] font-black leading-snug capitalize text-[#4d382f]">
-                  {activity}
-                </span>
-              </>
-            )}
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <div className={`home-v3-card-orb shrink-0 ${isLoading ? 'animate-bounce' : ''}`}>
+            <img
+              src={planAsset.src}
+              alt={planAsset.alt[lang]}
+              className="cozy-card-asset h-12 w-12"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
+
+          {isLoading ? (
+            <span className="min-w-0 flex-1 text-sm font-black leading-tight text-[#9c8c80] animate-pulse">
+              {activity}
+            </span>
+          ) : (
+            <span className="home-v3-plan-title line-clamp-2 min-w-0 flex-1 text-[0.98rem] font-black leading-snug capitalize text-[#4d382f]">
+              {activity}
+            </span>
+          )}
         </div>
 
         {!isLoading && (

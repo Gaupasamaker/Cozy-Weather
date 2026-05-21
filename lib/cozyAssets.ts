@@ -174,7 +174,7 @@ export const getWeatherAsset = (
     if (weatherCode >= 95) return cozyWeatherAssets.storm;
     if (isRainCode(weatherCode)) return weatherCode >= 61 ? cozyWeatherAssets.heavyRain : cozyWeatherAssets.rain;
     if (isSnowCode(weatherCode)) return cozyWeatherAssets.snow;
-    if (weatherCode === 0) return cozyWeatherAssets.stars;
+    if (weatherCode === 0) return cozyWeatherAssets.night;
     return cozyWeatherAssets.night;
   }
 

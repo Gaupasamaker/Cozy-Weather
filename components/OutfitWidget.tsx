@@ -36,26 +36,26 @@ const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, i
 
   return (
     <div
-      className="home-v3-editorial-card home-v3-editorial-card--outfit storybook-panel flex cursor-pointer select-none items-center gap-2.5 rounded-[1.65rem] p-3.5 touch-manipulation"
+      className="home-v3-editorial-card home-v3-editorial-card--outfit storybook-panel flex cursor-pointer select-none flex-col justify-center gap-2 rounded-[1.65rem] p-3 touch-manipulation"
       onClick={triggerBounce}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <style>{boingStyle}</style>
-      <div
-        className={`home-v3-card-orb shrink-0 transform origin-center transition-transform duration-300 ${isBouncing ? '' : 'hover:scale-110 active:scale-95'}`}
-        style={isBouncing ? { animation: 'boing-widget 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' } : { transform: 'rotate(-6deg)' }}
-      >
-        <img
-          src={outfit.src}
-          alt={outfit.alt[lang]}
-          className="cozy-card-asset h-14 w-14"
-          loading="lazy"
-          decoding="async"
-        />
-      </div>
-      <div className="min-w-0">
-        <span className="mb-1 block whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-[#d98c84]">{label}</span>
-        <span className="block text-[0.95rem] font-black leading-snug text-[#4d382f]">{outfit.text[lang]}</span>
+      <span className="home-v3-card-kicker text-[#d98c84]">{label}</span>
+      <div className="flex w-full min-w-0 items-center gap-2">
+        <div
+          className={`home-v3-card-orb shrink-0 transform origin-center transition-transform duration-300 ${isBouncing ? '' : 'hover:scale-110 active:scale-95'}`}
+          style={isBouncing ? { animation: 'boing-widget 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' } : { transform: 'rotate(-6deg)' }}
+        >
+          <img
+            src={outfit.src}
+            alt={outfit.alt[lang]}
+            className="cozy-card-asset h-12 w-12"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <span className="block min-w-0 flex-1 text-[0.98rem] font-black leading-snug text-[#4d382f]">{outfit.text[lang]}</span>
       </div>
     </div>
   );
