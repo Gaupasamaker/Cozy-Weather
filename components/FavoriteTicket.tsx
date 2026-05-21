@@ -1,5 +1,5 @@
 import React from 'react';
-import { CozyAsset } from '../lib/cozyAssets';
+import { CozyAsset, cozyWeatherAssets } from '../lib/cozyAssets';
 import { Language } from '../services/cozyService';
 import { GeoLocation } from '../types';
 
@@ -57,9 +57,13 @@ const FavoriteTicket: React.FC<FavoriteTicketProps> = ({
               decoding="async"
             />
           ) : (
-            <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#d98c84]" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.5 8.7c0 5.8-8.5 10.5-8.5 10.5S3.5 14.5 3.5 8.7A4.5 4.5 0 0 1 12 6.6a4.5 4.5 0 0 1 8.5 2.1Z" />
-            </svg>
+            <img
+              src={cozyWeatherAssets.cloudy.src}
+              alt={lang === 'es' ? 'Cargando clima' : 'Loading weather'}
+              className="cozy-card-asset h-9 w-9 opacity-70"
+              loading="eager"
+              decoding="async"
+            />
           )}
         </span>
 
