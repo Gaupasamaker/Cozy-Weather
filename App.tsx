@@ -72,7 +72,6 @@ const translations = {
     location: 'Ubicación',
     localData: 'Datos locales',
     credits: 'Créditos',
-    visualAssets: 'Cozy Weather visual assets',
     version: 'Versión V1',
     recentSearches: 'Búsquedas recientes',
     favoritesEmptyTitle: 'Tus ciudades favoritas',
@@ -137,7 +136,6 @@ const translations = {
     location: 'Location',
     localData: 'Local data',
     credits: 'Credits',
-    visualAssets: 'Cozy Weather visual assets',
     version: 'Version V1',
     recentSearches: 'Recent searches',
     favoritesEmptyTitle: 'Your favorite cities',
@@ -983,9 +981,6 @@ const App: React.FC = () => {
                     />
                     <p>{conditionLabel}</p>
                   </div>
-                  <p className="home-v3-range">
-                    {formatTemperature(weather.daily.temperature_2m_min[0])}&deg;{temperatureUnit === 'f' ? 'F' : ''} / {formatTemperature(weather.daily.temperature_2m_max[0])}&deg;{temperatureUnit === 'f' ? 'F' : ''}
-                  </p>
                 </div>
                 {weather.current_weather.apparent_temperature !== undefined && (
                   <div className="home-v3-feels-meta">
@@ -1011,7 +1006,7 @@ const App: React.FC = () => {
 
             <section className="home-v3-content-section">
             {cozyMessage && (
-              <section className="home-v3-message-card storybook-paper mb-4">
+              <section className="home-v3-message-card storybook-paper mb-2.5">
                 <div className="home-v3-message-icon">
                   <img src={cozyMessageAsset.src} alt={cozyMessageAsset.alt[language]} className="cozy-card-asset h-12 w-12" loading="lazy" decoding="async" />
                 </div>
@@ -1025,7 +1020,7 @@ const App: React.FC = () => {
               </section>
             )}
 
-            <section className="home-v3-feature-grid mb-4">
+            <section className="home-v3-feature-grid mb-3">
               <OutfitWidget
                 temperature={weather.current_weather.temperature}
                 apparentTemperature={weather.current_weather.apparent_temperature ?? weather.current_weather.temperature}
@@ -1052,7 +1047,7 @@ const App: React.FC = () => {
               />
             </section>
 
-            <section className="home-v3-forecast-panel storybook-paper mb-5">
+            <section className="home-v3-forecast-panel storybook-paper mb-3">
               <HourlyForecast
                 data={weather.hourly}
                 label={t.hourly}
@@ -1062,7 +1057,7 @@ const App: React.FC = () => {
               />
             </section>
 
-            <section className="home-v3-forecast-panel storybook-paper mb-5">
+            <section className="home-v3-forecast-panel storybook-paper mb-3">
               <h2 className="home-v3-section-title">{t.nextDays}</h2>
               <div className="home-v3-daily-list">
                 {weather.daily.time.slice(1, 6).map((date, index) => {
@@ -1073,13 +1068,15 @@ const App: React.FC = () => {
                     weekday: 'short',
                     day: 'numeric'
                   });
-                  const weatherAsset = getWeatherAsset(code, max, 0, true);
+                  const weatherAsset = getWeatherAsset(code, 20, 0, true);
 
                   return (
                     <div key={date} className="home-v3-daily-row">
                       <span className="home-v3-daily-day">{dayLabel}</span>
-                      <img src={weatherAsset.src} alt={weatherAsset.alt[language]} className="cozy-forecast-asset h-9 w-9" loading="lazy" decoding="async" />
-                      <span className="home-v3-daily-copy">{getForecastConditionLabel(code, language)}</span>
+                      <span className="home-v3-daily-weather">
+                        <img src={weatherAsset.src} alt={weatherAsset.alt[language]} className="cozy-forecast-asset h-9 w-9" loading="lazy" decoding="async" />
+                        <span className="home-v3-daily-copy">{getForecastConditionLabel(code, language)}</span>
+                      </span>
                       <span className="home-v3-daily-range">
                         {formatTemperature(min)}&deg; / {formatTemperature(max)}&deg;{temperatureUnit === 'f' ? 'F' : ''}
                       </span>
@@ -1091,7 +1088,7 @@ const App: React.FC = () => {
 
             <button
               onClick={() => setShowPromo(true)}
-              className="home-v3-share mb-5"
+              className="home-v3-share mb-3"
             >
               {t.shareBtn}
             </button>
@@ -1403,7 +1400,6 @@ const App: React.FC = () => {
                   <h2 className="section-kicker px-1 text-lg font-black text-[#4d382f]">{t.credits}</h2>
                   <div className="settings-panel storybook-panel grid gap-3 rounded-[1.7rem] p-4 text-sm font-bold text-[#7c6a62]">
                     <p>{t.footer}</p>
-                    <p>{t.visualAssets}</p>
                     <p>{t.version}</p>
                   </div>
                 </section>

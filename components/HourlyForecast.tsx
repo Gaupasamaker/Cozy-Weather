@@ -49,7 +49,6 @@ const HourlyForecast: React.FC<HourlyForecastProps> = ({ data, label, lang, temp
     <div className="home-v3-hourly">
       <div className="home-v3-section-heading">
         <h3>{label}</h3>
-        <span>{nowLabel}</span>
       </div>
       <div
         ref={scrollRef}

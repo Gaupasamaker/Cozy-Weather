@@ -551,19 +551,28 @@ body {
 .home-v3-feels-meta {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.52rem;
   width: fit-content;
-  margin-top: 0.7rem;
-  color: var(--storybook-muted);
-  font-size: 0.86rem;
-  font-weight: 700;
-  text-shadow: 0 1px 10px rgba(255, 250, 240, 0.58);
+  margin-top: 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.54);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.48);
+  padding: 0.24rem 0.58rem 0.24rem 0.25rem;
+  color: #5f4b42;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 1px 9px rgba(255, 250, 240, 0.72);
+  box-shadow:
+    0 8px 18px rgba(92, 64, 45, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(5px);
 }
 
 .home-v3-feels-icon {
   display: inline-flex;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.95rem;
+  height: 1.95rem;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
@@ -575,13 +584,20 @@ body {
 .home-v3-wind-meta {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   width: fit-content;
-  margin-top: 0.52rem;
-  color: var(--storybook-muted);
-  font-size: 0.84rem;
-  font-weight: 700;
-  text-shadow: 0 1px 10px rgba(255, 250, 240, 0.5);
+  margin-top: 0.44rem;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.38);
+  padding: 0.2rem 0.58rem 0.2rem 0.32rem;
+  color: #5f4b42;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 1px 9px rgba(255, 250, 240, 0.68);
+  box-shadow: 0 8px 18px rgba(92, 64, 45, 0.06);
+  backdrop-filter: blur(5px);
 }
 
 .home-cache-notice {
@@ -628,10 +644,10 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-height: 5.05rem;
+  min-height: 4.85rem;
   overflow: hidden;
   border-radius: 1.8rem;
-  padding: 0.95rem 1.15rem;
+  padding: 0.85rem 1.05rem;
 }
 
 .storybook-shell--night-home .home-v3-brand-title,
@@ -784,12 +800,12 @@ body {
 .home-v3-feature-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.9rem;
+  gap: 0.65rem;
+  margin-bottom: 0.625rem;
 }
 
 .home-v3-editorial-card {
-  min-height: 6.2rem;
+  min-height: 5.85rem;
 }
 
 .home-v3-editorial-card--outfit {
@@ -802,12 +818,19 @@ body {
 
 .home-v3-card-orb {
   display: flex;
-  width: 3.45rem;
-  height: 3.45rem;
+  width: 3rem;
+  height: 3rem;
   align-items: center;
   justify-content: center;
   border-radius: 0;
   background: transparent;
+}
+
+.home-v3-plan-title {
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
 }
 
 .home-v3-forecast-panel {
@@ -839,22 +862,12 @@ body {
 }
 
 .home-v3-hourly-scroll {
-  padding-bottom: 0.7rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(217, 140, 132, 0.48) transparent;
+  padding-bottom: 0.3rem;
+  scrollbar-width: none;
 }
 
 .home-v3-hourly-scroll::-webkit-scrollbar {
-  height: 0.28rem;
-}
-
-.home-v3-hourly-scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(217, 140, 132, 0.48);
-}
-
-.home-v3-hourly-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  display: none;
 }
 
 .home-v3-hourly-track {
@@ -866,7 +879,7 @@ body {
 .home-v3-hourly-indicator {
   position: relative;
   height: 0.3rem;
-  margin-top: 0.1rem;
+  margin-top: 0.45rem;
   border-radius: 999px;
   background: rgba(217, 140, 132, 0.14);
   overflow: hidden;
@@ -914,9 +927,10 @@ body {
 
 .home-v3-daily-row {
   display: grid;
-  grid-template-columns: 3.1rem 1.8rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.35rem minmax(0, 8.25rem) 4.75rem;
   align-items: center;
-  gap: 0.55rem;
+  column-gap: 0.35rem;
+  justify-content: space-between;
   min-height: 2.35rem;
   border-top: 1px solid rgba(124, 106, 98, 0.14);
 }
@@ -937,6 +951,13 @@ body {
   text-transform: capitalize;
 }
 
+.home-v3-daily-weather {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .home-v3-daily-copy {
   min-width: 0;
   overflow: hidden;
@@ -946,6 +967,7 @@ body {
 
 .home-v3-daily-range {
   color: var(--storybook-ink);
+  justify-self: end;
   white-space: nowrap;
 }
 

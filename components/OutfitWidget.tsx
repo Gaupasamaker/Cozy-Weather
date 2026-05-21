@@ -54,7 +54,7 @@ const OutfitWidget: React.FC<OutfitWidgetProps> = ({ temperature, weatherCode, i
         />
       </div>
       <div className="min-w-0">
-        <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.16em] text-[#d98c84]">{label}</span>
+        <span className="mb-1 block whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-[#d98c84]">{label}</span>
         <span className="block text-[0.95rem] font-black leading-snug text-[#4d382f]">{outfit.text[lang]}</span>
       </div>
     </div>

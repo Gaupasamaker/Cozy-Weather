@@ -32,19 +32,19 @@ const ActivityWidget: React.FC<ActivityWidgetProps> = ({
     >
       <div className="storybook-panel absolute inset-0 rounded-[1.65rem] transition-all duration-300 group-hover:bg-[#fffaf0]"></div>
 
-      <div className="relative flex h-full items-center gap-2.5 p-3.5 pr-7">
+      <div className="relative flex h-full items-center gap-2 p-3 pr-6">
         <div className={`home-v3-card-orb shrink-0 ${isLoading ? 'animate-bounce' : ''}`}>
           <img
             src={planAsset.src}
             alt={planAsset.alt[lang]}
-            className="cozy-card-asset h-14 w-14"
+            className="cozy-card-asset h-11 w-11"
             loading="lazy"
             decoding="async"
           />
         </div>
 
         <div className="flex flex-col items-start min-w-0 flex-1">
-          <span className="mb-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#d49a3a]">
+          <span className="mb-1 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-[#d49a3a]">
             {title}
           </span>
           <div className="flex w-full items-center gap-2">
@@ -54,7 +54,7 @@ const ActivityWidget: React.FC<ActivityWidgetProps> = ({
               </span>
             ) : (
               <>
-                <span className="line-clamp-2 text-[0.95rem] font-black leading-snug capitalize text-[#4d382f]">
+                <span className="home-v3-plan-title line-clamp-2 text-[0.9rem] font-black leading-snug capitalize text-[#4d382f]">
                   {activity}
                 </span>
               </>
@@ -63,8 +63,8 @@ const ActivityWidget: React.FC<ActivityWidgetProps> = ({
         </div>
 
         {!isLoading && (
-          <div className="absolute right-3 text-[#b5792c] transition-transform group-hover:translate-x-1">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+          <div className="absolute right-2.5 text-[#b5792c] transition-transform group-hover:translate-x-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-[1.125rem] w-[1.125rem]">
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </div>
