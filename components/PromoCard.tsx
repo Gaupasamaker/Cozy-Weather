@@ -15,7 +15,7 @@ const translations = {
     appTitle: 'Cozy Weather',
     subtitle: 'El tiempo cozy en',
     footer: 'Un momento sencillo para mirar el cielo con calma.',
-    capture: 'Comparte una tarjeta cozy o el enlace',
+    capture: 'COMPARTE UNA TARJETA COZY',
     shareImage: 'Compartir imagen',
     shareLink: 'Compartir enlace',
     shareX: 'X / Twitter',
@@ -42,7 +42,7 @@ const translations = {
     appTitle: 'Cozy Weather',
     subtitle: 'Cozy weather in',
     footer: 'A simple moment to check the sky with calm.',
-    capture: 'Share a cozy card or the link',
+    capture: 'SHARE A COZY CARD',
     shareImage: 'Share image',
     shareLink: 'Share link',
     shareX: 'X / Twitter',
@@ -232,13 +232,13 @@ const PromoCard: React.FC<PromoCardProps> = ({
     fitText(ctx, t.condition[conditionKey], 420, 58, 900);
     ctx.fillText(t.condition[conditionKey], 184, 520);
 
-    drawRoundedRect(ctx, 72, 560, 700, 78, 36);
-    ctx.fillStyle = 'rgba(255, 250, 240, 0.84)';
+    drawRoundedRect(ctx, 72, 564, 330, 62, 31);
+    ctx.fillStyle = 'rgba(255, 250, 240, 0.82)';
     ctx.fill();
-    ctx.drawImage(leavesImage, 88, 568, 62, 62);
-    ctx.fillStyle = '#5f4b42';
-    ctx.font = '900 30px Nunito, Quicksand, Arial, sans-serif';
-    ctx.fillText(t.footer, 170, 610);
+    ctx.drawImage(leavesImage, 90, 572, 46, 46);
+    ctx.fillStyle = '#6f5146';
+    ctx.font = '900 28px Nunito, Quicksand, Arial, sans-serif';
+    ctx.fillText(t.appTitle, 150, 604);
 
     const blob = await canvasToBlob(canvas);
     return new File([blob], 'cozy-weather-social-card.png', { type: 'image/png' });
@@ -350,8 +350,8 @@ const PromoCard: React.FC<PromoCardProps> = ({
         ×
       </button>
 
-      <div className="absolute left-1/2 top-[40%] z-10 flex w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center pointer-events-none">
-        <div className="origin-center scale-[0.32] min-[375px]:scale-[0.35] min-[425px]:scale-[0.39] sm:scale-[0.48] md:scale-[0.58] pointer-events-auto">
+      <div className="absolute left-1/2 top-[35%] z-10 flex w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center pointer-events-none">
+        <div className="origin-center scale-[0.28] min-[375px]:scale-[0.31] min-[425px]:scale-[0.34] sm:scale-[0.43] md:scale-[0.52] pointer-events-auto">
           <div
             id="social-card"
             className="relative h-[1400px] w-[900px] overflow-hidden rounded-[4.5rem] border-[10px] border-[#fffaf0] bg-[#f3e3d6] shadow-2xl"
